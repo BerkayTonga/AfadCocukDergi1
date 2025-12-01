@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<!-- Created by Berkay Tonga 11.11.2025 -->
+<!-- BTNH1:QlROSDEjAEJlcmtheSBUb25nYSB8IDIwMjUtMTEtMTBUMTQ6MzA6MTdau9rD81j6P/w= | Berkay Tonga | 2025-11-10T14:30:17Z -->
+<html lang="tr">
+<head>
+    <meta name="author" content="Berkay Tonga">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resfebe</title>
+  <link href="libs/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="libs/fontawesome/all.min.css">
+  <link rel="stylesheet" href="css/resfebe.css">
+</head>
+<body>
+  <div class="container-fluid game-container">
+    <div class="row align-items-center" style="margin: 0; width: 100%;">
+      <div class="col-lg-3 col-md-12">
+        <div class="left-panel">
+          <img src="img/rf_bilgi.png" alt="Resfebe" class="title-image">
+          
+          <div id="leftFore" class="leftFore">
+            <div class="game-info">
+              <div class="score badge bg-warning text-dark"><span id="stars"></span></div>
+            </div>
+
+            <div class="button-container">
+              <button class="btn btn-danger btn-sm" onclick="oyunuSifirla()">Baştan Başla</button>
+            </div>
+            
+            <div id="message" class="message alert hidden"></div>
+            
+            <div class="collected-items">
+              <h4>Bulunan Kelimeler:</h4>
+              <div id="collectedItemsList" class="collected-items-list">
+                <div class="no-items">Henüz kelime bulunmadı</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6 col-md-12 d-flex justify-content-center">
+        <div class="game-area">
+          <div class="example-images-top-mobile">
+            <img src="img/rf_ornek.png" alt="Örnek" class="example-image-mobile">
+            <img src="img/rf_ornek_aciklama.png" alt="Örnek Açıklama" class="example-description-mobile">
+          </div>
+          <img src="img/rf_ornek_aciklama.png" alt="Örnek Açıklama" class="example-description-top-desktop">
+          <div class="resfebe-grid" id="resfebeGrid">
+            <!-- Resfebe görselleri buraya dinamik olarak yüklenecek -->
+          </div>
+          <img src="img/rf_ipucu.png" alt="İpucu" class="example-hint-mobile">
+          <img src="img/rf_ipucu.png" alt="İpucu" class="example-hint-bottom-desktop">
+        </div>
+      </div>
+      
+      <div class="col-lg-3 col-md-12">
+        <div class="right-panel">
+          <img src="img/rf_ornek.png" alt="Örnek" class="example-image-desktop">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Custom overlay cursor element
+    (function() {
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                if (!document.getElementById('custom-cursor')) {
+                    const el = document.createElement('div');
+                    el.id = 'custom-cursor';
+                    document.body.appendChild(el);
+                }
+                const cursorEl = document.getElementById('custom-cursor');
+                if (!cursorEl) return;
+                let visible = true;
+                function getHotspot() {
+                    const root = getComputedStyle(document.documentElement);
+                    const x = parseFloat(root.getPropertyValue('--hotspot-x')) || 8;
+                    const y = parseFloat(root.getPropertyValue('--hotspot-y')) || 4;
+                    return { x, y };
+                }
+                function move(e) {
+                    if (!visible) { cursorEl.style.display = 'block'; visible = true; }
+                    const hotspot = getHotspot();
+                    cursorEl.style.transform = 'translate(' + (e.clientX - hotspot.x) + 'px,' + (e.clientY - hotspot.y) + 'px)';
+                }
+                cursorEl.style.display = 'block';
+                document.addEventListener('mousemove', function initMove(e) {
+                    move(e);
+                    document.removeEventListener('mousemove', initMove);
+                }, { once: true });
+                document.addEventListener('mousemove', move);
+                document.addEventListener('mouseleave', function(){ cursorEl.style.display = 'none'; visible = false; });
+                document.addEventListener('mouseenter', function(){ cursorEl.style.display = 'block'; visible = true; });
+                document.addEventListener('touchstart', function(){ if (cursorEl) cursorEl.style.display = 'none'; }, { passive: true });
+            } catch(_) { /* no-op */ }
+        });
+    })();
+    
+    let backgroundMusic = null;
+    let isMusicPlaying = false;
+    let musicInitialized = false;
+    
+    // Müziği yükle ve başlat
+    function loadAndPlayMusic() {
+        try {
+            if (backgroundMusic) {
+                backgroundMusic = null;
+            }
+            
+            backgroundMusic = new Audio('sounds/rf_music.mp3');
+            backgroundMusic.preload = 'auto';
+            backgroundMusic.loop = true;
+            backgroundMusic.volume = 0.3;
+            
+            backgroundMusic.addEventListener('canplaythrough', function() {
+                startMusic();
+            });
+            
+            backgroundMusic.addEventListener('error', function(e) {
+                // Created by Berkay Tonga 11.11.2025
+            });
+            
+            backgroundMusic.load();
+            
+        } catch (error) {
+            // Created by Berkay Tonga 11.11.2025
+        }
+    }
+    
+    // Müziği başlat
+    function startMusic() {
+        if (backgroundMusic && !isMusicPlaying) {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play().then(() => {
+                isMusicPlaying = true;
+                musicInitialized = true;
+            }).catch(e => {});
+        } else if (!backgroundMusic) {
+            loadAndPlayMusic();
+        }
+    }
+    
+    // Müziği zorla başlat
+    function forceStartMusic() {
+        if (backgroundMusic) {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play().then(() => {
+                isMusicPlaying = true;
+                musicInitialized = true;
+            }).catch(e => {});
+        } else {
+            loadAndPlayMusic();
+        }
+    }
+    
+    // Sayfa görünürlük kontrolü
+    document.addEventListener('visibilitychange', function() {
+        if (backgroundMusic && musicInitialized) {
+            if (document.hidden) {
+                backgroundMusic.pause();
+                isMusicPlaying = false;
+            } else {
+                if (!isMusicPlaying) {
+                    backgroundMusic.play().then(() => {
+                        isMusicPlaying = true;
+                    }).catch(e => {});
+                }
+            }
+        }
+    });
+    
+    // Kullanıcı etkileşimi ile müziği başlat
+    document.addEventListener('click', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+    
+    document.addEventListener('keydown', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+    
+    document.addEventListener('mousemove', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+    
+    document.addEventListener('touchstart', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+    
+    // Created by Berkay Tonga 11.11.2025
+    const resfebeItems = [
+      { image: 'img/rf_sel.png', word: 'SEL' },
+      { image: 'img/rf_afet.png', word: 'AFET' },
+      { image: 'img/rf_yangin.png', word: 'YANGIN' },
+      { image: 'img/rf_heyelan.png', word: 'HEYELAN' },
+      { image: 'img/rf_sismometre.png', word: 'SİSMOMETRE' },
+      { image: 'img/rf_orman_yangini.png', word: 'ORMAN YANGINI' },
+      { image: 'img/rf_hortum.png', word: 'HORTUM' },
+      { image: 'img/rf_toplanma_alani.png', word: 'TOPLANMA ALANI' },
+      { image: 'img/rf_kuraklik.png', word: 'KURAKLIK' }
+    ];
+    const bulunan = new Set();
+    let gameRunning = true;
+
+    // Created by Berkay Tonga 11.11.2025
+    function createResfebeItems() {
+      const grid = document.getElementById('resfebeGrid');
+      grid.innerHTML = '';
+      
+      resfebeItems.forEach((item, index) => {
+        const resfebeCard = document.createElement('div');
+        resfebeCard.className = 'resfebe-card';
+        resfebeCard.dataset.index = index;
+        
+        const resfebeImage = document.createElement('img');
+        resfebeImage.src = item.image;
+        resfebeImage.alt = item.word;
+        resfebeImage.className = 'resfebe-image';
+        resfebeImage.dataset.imageIndex = index;
+        
+        const rightContainer = document.createElement('div');
+        rightContainer.className = 'right-container';
+        
+        const input = document.createElement('textarea');
+        input.className = 'resfebe-input';
+        input.placeholder = 'Cevap...';
+        input.dataset.index = index;
+        input.rows = 1;
+        input.addEventListener('input', (e) => {
+          const ta = e.target;
+          const hadNewline = ta.value.includes('\n');
+          if (!hadNewline) {
+            // Geçici yükseklik reseti ile genişlik ölçümünü doğru yap
+            const prevHeight = ta.style.height;
+            ta.style.height = 'auto';
+            // Eğer içerik genişliği, görünür genişliği aşıyorsa ve boşluk varsa
+            if (ta.scrollWidth > ta.clientWidth) {
+              const lastSpace = ta.value.lastIndexOf(' ');
+              if (lastSpace > -1) {
+                ta.value = ta.value.slice(0, lastSpace) + '\n' + ta.value.slice(lastSpace + 1);
+              }
+            }
+            ta.style.height = prevHeight;
+          }
+
+          // Yüksekliği dinamik ayarla (maks 2 satır)
+          ta.style.height = 'auto';
+          const lineH = parseFloat(getComputedStyle(ta).lineHeight) || 18;
+          const maxHeight = lineH * 2;
+          ta.style.height = Math.min(ta.scrollHeight, maxHeight) + 'px';
+          checkAnswer(index, ta.value);
+        });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            checkAnswer(index, e.target.value);
+          }
+        });
+        
+        const answerSpan = document.createElement('span');
+        answerSpan.className = 'answer-text';
+        answerSpan.style.display = 'none';
+        
+        rightContainer.appendChild(input);
+        rightContainer.appendChild(answerSpan);
+        resfebeCard.appendChild(resfebeImage);
+        resfebeCard.appendChild(rightContainer);
+        grid.appendChild(resfebeCard);
+      });
+    }
+
+    // Created by Berkay Tonga 11.11.2025
+    function checkAnswer(index, answer) {
+      if (!gameRunning) return;
+      
+      const item = resfebeItems[index];
+      if (!item) return;
+      
+      const normalizedAnswer = normalize(answer);
+      const normalizedWord = normalize(item.word);
+      
+      if (normalizedAnswer === normalizedWord) {
+        if (!bulunan.has(item.word)) {
+          const willFinish = (bulunan.size + 1 === resfebeItems.length);
+          bulunan.add(item.word);
+          
+          const card = document.querySelector(`.resfebe-card[data-index="${index}"]`);
+          if (card) {
+            card.classList.add('found');
+            const input = card.querySelector('.resfebe-input');
+            const answerSpan = card.querySelector('.answer-text');
+            if (input && answerSpan) {
+              answerSpan.textContent = capitalizeFirst(item.word);
+              answerSpan.style.display = 'flex';
+              input.style.display = 'none';
+            }
+            
+            setTimeout(() => {
+              highlightCard(card);
+            }, 50);
+          }
+          
+          const afterPopup = () => {
+            updateCollectedItemsList();
+            guncelleYildizlar();
+            if (willFinish) {
+              endGame();
+            }
+          };
+          
+          if (willFinish) {
+            showWordFoundAnimation(item.word, afterPopup);
+          } else {
+            showWordFoundAnimation(item.word);
+            updateCollectedItemsList();
+            guncelleYildizlar();
+          }
+        }
+      } else if (normalizedAnswer.length > 0 && normalizedAnswer.length === normalizedWord.length && normalizedAnswer !== normalizedWord) {
+        triggerWrongAnswerFeedback();
+      }
+    }
+
+    function triggerWrongAnswerFeedback() {
+      try {
+        const wrongSound = new Audio('sounds/bk_wrong.mp3');
+        wrongSound.volume = 0.5;
+        wrongSound.play().catch(() => {});
+      } catch(_) {}
+
+      document.body.classList.add('failed-shake');
+      setTimeout(() => {
+        document.body.classList.remove('failed-shake');
+      }, 600);
+
+      const overlay = document.createElement('div');
+      overlay.className = 'failed-overlay';
+      document.body.appendChild(overlay);
+      setTimeout(() => {
+        overlay.remove();
+      }, 600);
+    }
+
+    function capitalizeFirst(str) {
+      if (!str) return '';
+      return str.toLocaleLowerCase('tr-TR')
+        .split(' ')
+        .map(word => {
+          if (word.length === 0) return word;
+          // Türkçe karakterler için özel işlem
+          const firstChar = word.charAt(0);
+          const rest = word.slice(1).toLocaleLowerCase('tr-TR');
+          // İlk harfi büyük yap
+          const upperFirst = firstChar.toLocaleUpperCase('tr-TR');
+          return upperFirst + rest;
+        })
+        .join(' ');
+    }
+
+    function normalize(str) {
+      return (str || '').toLocaleUpperCase('tr-TR')
+        .replace(/Ş/g,'S').replace(/Ğ/g,'G').replace(/Ç/g,'C')
+        .replace(/İ/g,'I').replace(/Ö/g,'O').replace(/Ü/g,'U')
+        .replace(/[^A-ZÇĞİÖŞÜ ]/g,'')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function createStarBurst(card) {
+      const answerSpan = card.querySelector('.answer-text');
+      if (!answerSpan) return;
+      
+      const cardRect = card.getBoundingClientRect();
+      const answerRect = answerSpan.getBoundingClientRect();
+      
+      const centerX = answerRect.left - cardRect.left + answerRect.width / 2;
+      const centerY = answerRect.top - cardRect.top + answerRect.height / 2;
+
+      const starCount = 12;
+      const colors = [
+        '#FFD700',
+        '#FF6B6B',
+        '#4ECDC4',
+        '#45B7D1',
+        '#FFA07A',
+        '#98D8C8',
+        '#F7DC6F',
+        '#BB8FCE',
+        '#85C1E2',
+        '#F8B739',
+        '#52BE80',
+        '#EC7063'
+      ];
+
+      const isMobile = window.innerWidth <= 480;
+      const isTablet = window.innerWidth <= 1000 && window.innerWidth > 480;
+      
+      const baseDistance = isMobile ? 50 : (isTablet ? 60 : 80);
+      const distanceVariation = isMobile ? 20 : (isTablet ? 30 : 40);
+      const baseSize = isMobile ? 12 : (isTablet ? 16 : 20);
+      const sizeVariation = isMobile ? 4 : (isTablet ? 6 : 8);
+
+      for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.className = 'key-star';
+
+        const angle = (i * 360 / starCount) * Math.PI / 180;
+        const distance = baseDistance + Math.random() * distanceVariation;
+
+        const endX = Math.cos(angle) * distance;
+        const endY = Math.sin(angle) * distance;
+
+        star.style.left = centerX + 'px';
+        star.style.top = centerY + 'px';
+
+        star.style.setProperty('--star-x', endX + 'px');
+        star.style.setProperty('--star-y', endY + 'px');
+
+        const color = colors[i % colors.length];
+        star.style.color = color;
+        star.style.background = `radial-gradient(circle, ${color} 0%, ${color}80 50%, transparent 100%)`;
+
+        star.style.animationDelay = (Math.random() * 0.2) + 's';
+
+        const size = baseSize + Math.random() * sizeVariation;
+        star.style.width = size + 'px';
+        star.style.height = size + 'px';
+        star.style.marginLeft = '-' + (size / 2) + 'px';
+        star.style.marginTop = '-' + (size / 2) + 'px';
+
+        card.appendChild(star);
+
+        setTimeout(() => {
+          if (star.parentNode) {
+            star.remove();
+          }
+        }, 2000);
+      }
+    }
+
+    function highlightCard(card) {
+      const answerSpan = card.querySelector('.answer-text');
+      if (!answerSpan) return;
+      
+      const cardRect = card.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const scrollY = window.scrollY || window.pageYOffset;
+      const scrollX = window.scrollX || window.pageXOffset;
+      
+      const targetY = scrollY + cardRect.top - (viewportHeight / 2) + (cardRect.height / 2);
+      const targetX = scrollX + cardRect.left - (viewportWidth / 2) + (cardRect.width / 2);
+      
+      window.scrollTo({
+        top: targetY,
+        left: targetX,
+        behavior: 'smooth'
+      });
+
+      setTimeout(() => {
+        answerSpan.style.removeProperty('transform');
+        answerSpan.style.willChange = 'transform';
+        
+        requestAnimationFrame(() => {
+          card.classList.add('key-card-highlight');
+
+          setTimeout(() => {
+            createStarBurst(card);
+          }, 50);
+
+          setTimeout(() => {
+            card.classList.remove('key-card-highlight');
+            answerSpan.style.removeProperty('transform');
+            answerSpan.style.removeProperty('will-change');
+          }, 1500);
+        });
+      }, 500);
+    }
+
+    // Created by Berkay Tonga 11.11.2025
+    function showWordFoundAnimation(word, onDone) {
+      const correctSound = new Audio('sounds/bk_correct.mp3');
+      correctSound.volume = 0.5;
+      correctSound.play().catch(() => {});
+
+      const popup = document.createElement('div');
+      popup.className = 'word-popup';
+      popup.textContent = capitalizeFirst(word);
+      popup.style.position = 'fixed';
+      
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      
+      popup.style.left = centerX + 'px';
+      popup.style.top = centerY + 'px';
+      popup.style.transform = 'translate(-50%, -50%) scale(0.3)';
+      popup.style.opacity = '0';
+      popup.style.transformOrigin = 'center center';
+      
+      document.body.appendChild(popup);
+      
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          popup.style.transition = 'opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          popup.style.transform = 'translate(-50%, -50%) scale(1.05)';
+          popup.style.opacity = '1';
+          
+          setTimeout(() => {
+            popup.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            popup.style.transform = 'translate(-50%, -50%) scale(1.1) translateY(-60px)';
+            popup.style.opacity = '0';
+          }, 1000);
+          
+          setTimeout(() => {
+            popup.remove();
+            if (typeof onDone === 'function') onDone();
+          }, 1250);
+        });
+      });
+    }
+
+    function updateCollectedItemsList() {
+      const list = document.getElementById('collectedItemsList');
+      if (!list) return;
+      
+      if (bulunan.size === 0) {
+        list.innerHTML = '<div class="no-items">Henüz kelime bulunmadı</div>';
+        return;
+      }
+      
+      list.innerHTML = '';
+      const kelimeler = Array.from(bulunan).reverse();
+      
+      kelimeler.forEach((word) => {
+        const wordSpan = document.createElement('span');
+        wordSpan.textContent = capitalizeFirst(word);
+        wordSpan.className = 'found-word';
+        list.appendChild(wordSpan);
+      });
+    }
+
+    // Yıldızları güncelle
+    function guncelleYildizlar() {
+      const starsElement = document.getElementById('stars');
+      if (!starsElement) return;
+      
+      const bulunanKelimeSayisi = bulunan.size;
+      const chips = [];
+      for (let i = 0; i < bulunanKelimeSayisi; i++) {
+        chips.push('<span class="star-chip">⭐</span>');
+      }
+      starsElement.innerHTML = chips.join(' ');
+    }
+
+    // Mesaj göster
+    function showMessage(text, type) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.textContent = text;
+      messageDiv.className = `message alert alert-${type}`;
+      messageDiv.classList.remove('hidden');
+      
+      setTimeout(() => {
+        messageDiv.classList.add('hidden');
+      }, 3000);
+    }
+
+    function endGame() {
+      if (!gameRunning) return;
+      gameRunning = false;
+      showCompletionEffects();
+    }
+
+    // Created by Berkay Tonga 11.11.2025
+    function saveGameState() {
+      try {
+        const answers = {};
+        document.querySelectorAll('.resfebe-card').forEach((card, index) => {
+          const input = card.querySelector('.resfebe-input');
+          const answerSpan = card.querySelector('.answer-text');
+          if (input && input.value) {
+            answers[index] = input.value;
+          } else if (answerSpan && answerSpan.textContent) {
+            answers[index] = answerSpan.textContent;
+          }
+        });
+        
+        const gameState = {
+          bulunan: Array.from(bulunan),
+          answers: answers,
+          gameRunning: gameRunning
+        };
+        localStorage.setItem('resfebe_state', JSON.stringify(gameState));
+      } catch (e) {
+        // Created by Berkay Tonga 11.11.2025
+      }
+    }
+
+    function loadGameState() {
+      try {
+        const savedState = localStorage.getItem('resfebe_state');
+        if (!savedState) return false;
+
+        const gameState = JSON.parse(savedState);
+        
+        bulunan.clear();
+        if (gameState.bulunan) {
+          gameState.bulunan.forEach(word => bulunan.add(word));
+        }
+        
+        gameRunning = gameState.gameRunning !== false;
+        
+        if (gameState.answers) {
+          document.querySelectorAll('.resfebe-card').forEach((card, index) => {
+            const answer = gameState.answers[index];
+            if (answer) {
+              const input = card.querySelector('.resfebe-input');
+              const answerSpan = card.querySelector('.answer-text');
+              const item = resfebeItems[index];
+              
+              if (item && bulunan.has(item.word)) {
+                card.classList.add('found');
+                if (answerSpan) {
+                  answerSpan.textContent = capitalizeFirst(item.word);
+                  answerSpan.style.display = 'flex';
+                }
+                if (input) {
+                  input.style.display = 'none';
+                }
+              } else if (input) {
+                input.value = answer;
+                input.style.display = 'block';
+                if (answerSpan) {
+                  answerSpan.style.display = 'none';
+                }
+              }
+            }
+          });
+        }
+        
+        // Listeleri güncelle
+        updateCollectedItemsList();
+        guncelleYildizlar();
+        
+        return true;
+      } catch (e) {
+        // Created by Berkay Tonga 11.11.2025
+        return false;
+      }
+    }
+
+    const originalCheckAnswer = checkAnswer;
+    checkAnswer = function(index, answer) {
+      originalCheckAnswer(index, answer);
+      saveGameState();
+    };
+
+    function oyunuSifirla() {
+      clearCompletionEffects();
+      
+      // localStorage'ı temizle
+      localStorage.removeItem('resfebe_state');
+      
+      bulunan.clear();
+      gameRunning = true;
+      
+      document.querySelectorAll('.resfebe-card').forEach(card => {
+        card.classList.remove('found');
+        const input = card.querySelector('.resfebe-input');
+        const answerSpan = card.querySelector('.answer-text');
+        if (input) {
+          input.value = '';
+          input.style.display = 'block';
+          input.style.height = 'auto';
+        }
+        if (answerSpan) {
+          answerSpan.style.display = 'none';
+          answerSpan.textContent = '';
+        }
+      });
+      
+      updateCollectedItemsList();
+      guncelleYildizlar();
+    }
+
+    let completionAnimationActive = false;
+    let animationTimeouts = [];
+    
+    function showCompletionEffects() {
+      if (completionAnimationActive) return;
+      
+      const leftFore = document.getElementById('leftFore');
+      if (!leftFore) return;
+      
+      completionAnimationActive = true;
+      // Tamamlama sesini çal
+      try {
+        const winSound = new Audio('sounds/level_complete.mp3');
+        winSound.volume = 0.6;
+        winSound.play().catch(() => {});
+      } catch(_) {}
+      animationTimeouts.forEach(timeout => clearTimeout(timeout));
+      animationTimeouts = [];
+      
+      const lfRect = leftFore.getBoundingClientRect();
+      
+      let popup = document.getElementById('completion-popup');
+      if (popup) {
+        popup.remove();
+      }
+      
+      popup = document.createElement('div');
+      popup.id = 'completion-popup';
+      popup.className = 'completion-popup';
+      
+      const clone = leftFore.cloneNode(true);
+      clone.id = 'completion-popup-content';
+      popup.appendChild(clone);
+      
+      const borderWidth = 3;
+      const padding = 12;
+      const totalWidth = lfRect.width + (borderWidth * 2);
+      
+      popup.style.setProperty('--popup-width', totalWidth + 'px');
+      
+      document.body.appendChild(popup);
+      
+      void popup.offsetHeight;
+      
+      popup.classList.add('completion-popup-active');
+      
+      const timeout1 = setTimeout(() => {
+        createCompletionAnimation();
+      }, 100);
+      animationTimeouts.push(timeout1);
+    }
+
+    function createCompletionAnimation() {
+      if (document.body.classList.contains('completion-bg-active')) {
+        return;
+      }
+      
+      document.body.classList.add('completion-bg-active');
+      
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const colors = ['#1E3A8A', '#FF8A00', '#1E88E5', '#1565C0', '#FFA726', '#FB8C00', '#2E7D32', '#388E3C'];
+      
+      const fragment = document.createDocumentFragment();
+      const confettiElements = [];
+      for (let i = 0; i < 50; i++) {
+        const angle = (i * 7.2) * Math.PI / 180;
+        const distance = 400 + Math.random() * 300;
+        const endX = centerX + Math.cos(angle) * distance;
+        const endY = centerY + Math.sin(angle) * distance;
+        const size = 10 + Math.random() * 8;
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = centerX + 'px';
+        c.style.top = centerY + 'px';
+        c.style.width = size + 'px';
+        c.style.height = size + 'px';
+        c.style.marginLeft = (-size / 2) + 'px';
+        c.style.marginTop = (-size / 2) + 'px';
+        c.style.backgroundColor = colors[i % colors.length];
+        c.style.setProperty('--end-x', (endX - centerX) + 'px');
+        c.style.setProperty('--end-y', (endY - centerY) + 'px');
+        c.style.setProperty('--delay', (Math.random() * 0.2) + 's');
+        c.style.setProperty('--duration', (2.5 + Math.random() * 0.5) + 's');
+        fragment.appendChild(c);
+        confettiElements.push(c);
+      }
+      document.body.appendChild(fragment);
+      
+      const confettiTimeout = setTimeout(() => {
+        if (!completionAnimationActive) return;
+        confettiElements.forEach(c => {
+          if (c && c.parentNode) c.remove();
+        });
+      }, 4000);
+      animationTimeouts.push(confettiTimeout);
+      
+      const starTimeout = setTimeout(() => {
+        if (!completionAnimationActive) return;
+        
+        const starFragment = document.createDocumentFragment();
+        const starElements = [];
+        for (let i = 0; i < 30; i++) {
+          const star = document.createElement('div');
+          star.className = 'star-burst';
+          const angle = (i * 12) * Math.PI / 180;
+          const distance = 250 + Math.random() * 200;
+          const endX = centerX + Math.cos(angle) * distance;
+          const endY = centerY + Math.sin(angle) * distance;
+          star.style.left = centerX + 'px';
+          star.style.top = centerY + 'px';
+          star.style.marginLeft = '-8px';
+          star.style.marginTop = '-8px';
+          star.style.setProperty('--end-x', (endX - centerX) + 'px');
+          star.style.setProperty('--end-y', (endY - centerY) + 'px');
+          starFragment.appendChild(star);
+          starElements.push(star);
+        }
+        document.body.appendChild(starFragment);
+        
+        const starRemoveTimeout = setTimeout(() => {
+          if (!completionAnimationActive) return;
+          starElements.forEach(star => {
+            if (star && star.parentNode) star.remove();
+          });
+        }, 3000);
+        animationTimeouts.push(starRemoveTimeout);
+      }, 500);
+      animationTimeouts.push(starTimeout);
+      
+      const rainTimeout = setTimeout(() => {
+        if (!completionAnimationActive) return;
+        
+        const rainFragment = document.createDocumentFragment();
+        const rainElements = [];
+        for (let j = 0; j < 15; j++) {
+          const size = 8 + Math.random() * 6;
+          const randomX = (Math.random() - 0.5) * 80;
+          const c = document.createElement('div');
+          c.className = 'confetti-rain';
+          c.style.left = Math.random() * 100 + '%';
+          c.style.top = '-20px';
+          c.style.width = size + 'px';
+          c.style.height = size + 'px';
+          c.style.marginLeft = (-size / 2) + 'px';
+          c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+          c.style.setProperty('--random-x', randomX + 'px');
+          c.style.setProperty('--delay', (Math.random() * 0.3) + 's');
+          c.style.setProperty('--duration', (3.5 + Math.random() * 1) + 's');
+          rainFragment.appendChild(c);
+          rainElements.push(c);
+        }
+        document.body.appendChild(rainFragment);
+        
+        const rainRemoveTimeout = setTimeout(() => {
+          if (!completionAnimationActive) return;
+          rainElements.forEach(c => {
+            if (c && c.parentNode) c.remove();
+          });
+        }, 6000);
+        animationTimeouts.push(rainRemoveTimeout);
+      }, 800);
+      animationTimeouts.push(rainTimeout);
+    }
+    
+    function clearCompletionEffects() {
+      completionAnimationActive = false;
+      animationTimeouts.forEach(timeout => clearTimeout(timeout));
+      animationTimeouts = [];
+      document.body.classList.remove('completion-bg-active');
+      document.querySelectorAll('.confetti, .confetti-rain, .star-burst').forEach(el => el.remove());
+      const popup = document.getElementById('completion-popup');
+      if (popup) {
+        popup.classList.remove('completion-popup-active');
+        const popupTimeout = setTimeout(() => {
+          if (popup.parentNode) popup.remove();
+        }, 300);
+        animationTimeouts.push(popupTimeout);
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      createResfebeItems();
+      
+      if (!loadGameState()) {
+      }
+      
+      guncelleYildizlar();
+      
+      // Sayfa kapanmadan önce durumu kaydet
+      window.addEventListener('beforeunload', saveGameState);
+      
+      // Periyodik olarak durumu kaydet (güvenlik için)
+      setInterval(saveGameState, 5000); // Her 5 saniyede bir
+      
+      // Input değişikliklerini dinle
+      document.addEventListener('input', function(e) {
+        if (e.target.classList.contains('resfebe-input')) {
+          saveGameState();
+        }
+      });
+      
+      // Müziği başlat
+      setTimeout(() => {
+          loadAndPlayMusic();
+      }, 100);
+      
+      setTimeout(() => {
+          if (!isMusicPlaying) {
+              forceStartMusic();
+          }
+      }, 1000);
+      
+      setTimeout(() => {
+          if (!isMusicPlaying) {
+              forceStartMusic();
+          }
+      }, 2000);
+      
+      setTimeout(() => {
+          if (!isMusicPlaying) {
+              forceStartMusic();
+          }
+      }, 3000);
+      
+      setTimeout(() => {
+          if (!isMusicPlaying) {
+              forceStartMusic();
+          }
+      }, 5000);
+    });
+    
+    // Window load eventi ile de dene
+    window.addEventListener('load', function() {
+        setTimeout(() => {
+            if (!isMusicPlaying) {
+                loadAndPlayMusic();
+            }
+        }, 500);
+    });
+  </script>
+  <script src="libs/bootstrap/bootstrap.bundle.min.js" defer></script>
+  <script src="book-effect/jquery.js" defer></script>
+  <script src="book-effect/turn.js" defer></script>
+</body>
+</html>
+

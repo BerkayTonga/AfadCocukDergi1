@@ -1,0 +1,2081 @@
+<!DOCTYPE html>
+
+<html lang="tr">
+<head>
+    <meta name="author" content="Berkay Tonga">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilgisayarsız Kodlama</title>
+    <link href="libs/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="libs/fontawesome/all.min.css">
+    <link rel="stylesheet" href="css/bilgisayarsiz_kodlama.css">
+    <script src="libs/bootstrap/bootstrap.bundle.min.js" defer></script>
+    <style>
+
+    </style>
+</head>
+<body>
+    <div class="container-fluid game-container">
+
+        <div class="row title-row-mobile">
+            <div class="col-12">
+                <img src="img/bk_baslik.png" alt="Bilgisayarsız Kodlama" class="title-image-mobile">
+            </div>
+        </div>
+
+        <div class="row align-items-center">
+            <div class="col-lg-3 col-md-12">
+                <div class="left-panel">
+                    <img src="img/bk_baslik.png" alt="Bilgisayarsız Kodlama" class="title-image">
+
+                    <div id="leftFore" class="left-fore">
+                        <div class="game-info">
+                            <div class="score badge bg-warning text-dark"><span id="stars"></span></div>
+                        </div>
+
+                        <div class="button-container">
+                            <button class="btn btn-danger btn-sm" onclick="restartGame()">Baştan Başla</button>
+                            <button class="btn btn-warning btn-sm" onclick="refreshGame()">Yenile</button>
+                        </div>
+
+                        <div class="command-list-container">
+                            <h5>Komutlar:</h5>
+                            <div id="commandList" class="command-list">
+                                <div class="no-commands">Henüz komut eklenmedi</div>
+                            </div>
+                            <div class="command-actions">
+                                <button class="btn btn-success btn-sm" onclick="startCommands()" id="startButton">Başlat</button>
+                            </div>
+                        </div>
+
+                        <div id="message" class="message alert hidden"></div>
+
+                        <div class="collected-items">
+                            <h4>Toplanan Eşyalar:</h4>
+                            <div id="collectedItemsList" class="collected-items-list">
+                                <div class="no-items">Henüz eşya toplanmadı</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 col-md-12">
+                <div class="game-area">
+                    <div class="grid" id="gameGrid"></div>
+                </div>
+            </div>
+
+            <div class="col-lg-3 col-md-12">
+                <div class="controls">
+                    <img src="img/bk_hareket_komutlari.png" alt="Hareket Komutları" class="movement-title-image">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="mobile-controls">
+        <button class="mobile-control-btn" onclick="handleMobileControl('up')">
+            <i class="fas fa-arrow-up"></i>
+        </button>
+        <button class="mobile-control-btn" onclick="handleMobileControl('left')">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <button class="mobile-control-btn" onclick="handleMobileControl('right')">
+            <i class="fas fa-arrow-right"></i>
+        </button>
+        <button class="mobile-control-btn space" onclick="handleMobileControl('space')">
+            TOPLA
+        </button>
+
+        <button id="musicButton" class="mobile-control-btn" onclick="startMusic()">
+            🎵 Müziği Başlat
+        </button>
+    </div>
+
+    <script>
+        (function() {
+            document.addEventListener('DOMContentLoaded', function() {
+                try {
+                    if (!document.getElementById('custom-cursor')) {
+                        const el = document.createElement('div');
+                        el.id = 'custom-cursor';
+                        document.body.appendChild(el);
+                    }
+                    const cursorEl = document.getElementById('custom-cursor');
+                    if (!cursorEl) return;
+                    let visible = true;
+                    function getHotspot() {
+                        const root = getComputedStyle(document.documentElement);
+                        const x = parseFloat(root.getPropertyValue('--hotspot-x')) || 8;
+                        const y = parseFloat(root.getPropertyValue('--hotspot-y')) || 4;
+                        return { x, y };
+                    }
+                    function move(e) {
+                        if (!visible) { cursorEl.style.display = 'block'; visible = true; }
+                        const hotspot = getHotspot();
+                        cursorEl.style.transform = 'translate(' + (e.clientX - hotspot.x) + 'px,' + (e.clientY - hotspot.y) + 'px)';
+                    }
+                    cursorEl.style.display = 'block';
+                    document.addEventListener('mousemove', function initMove(e) {
+                        move(e);
+                        document.removeEventListener('mousemove', initMove);
+                    }, { once: true });
+                    document.addEventListener('mousemove', move);
+                    document.addEventListener('mouseleave', function(){ cursorEl.style.display = 'none'; visible = false; });
+                    document.addEventListener('mouseenter', function(){ cursorEl.style.display = 'block'; visible = true; });
+                    document.addEventListener('touchstart', function(){ if (cursorEl) cursorEl.style.display = 'none'; }, { passive: true });
+                } catch(_) {  }
+            });
+        })();
+        function escapeHTML(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        let backgroundMusic = null;
+        let isMusicPlaying = false;
+        let musicInitialized = false;
+
+        function loadAndPlayMusic() {
+            try {
+                if (backgroundMusic) {
+                    backgroundMusic = null;
+                }
+
+                backgroundMusic = new Audio('sounds/bk_music.mp3');
+                backgroundMusic.preload = 'auto';
+                backgroundMusic.loop = true;
+                backgroundMusic.volume = 0.3; // %30 ses seviyesi
+
+                backgroundMusic.addEventListener('canplaythrough', function() {
+                    startMusic();
+                });
+
+                backgroundMusic.addEventListener('error', function(e) {
+                });
+
+                backgroundMusic.load();
+
+            } catch (error) {
+            }
+        }
+
+        function startMusic() {
+            if (backgroundMusic && !isMusicPlaying) {
+                backgroundMusic.currentTime = 0;
+                backgroundMusic.play().then(() => {
+                    isMusicPlaying = true;
+                    musicInitialized = true;
+                    updateMusicButton();
+                }).catch(e => {
+                });
+            } else if (!backgroundMusic) {
+                loadAndPlayMusic();
+            }
+        }
+
+        function updateMusicButton() {
+            const button = document.getElementById('musicButton');
+            if (button) {
+                if (isMusicPlaying) {
+                    button.innerHTML = '🔊 Müzik Çalıyor';
+                    button.classList.add('playing');
+                    button.onclick = function() {
+                        if (backgroundMusic) {
+                            backgroundMusic.pause();
+                            isMusicPlaying = false;
+                            updateMusicButton();
+                        }
+                    };
+                } else {
+                    button.innerHTML = '🎵 Müziği Başlat';
+                    button.classList.remove('playing');
+                    button.onclick = startMusic;
+                }
+            }
+        }
+
+        function forceStartMusic() {
+            if (backgroundMusic) {
+                backgroundMusic.currentTime = 0;
+                backgroundMusic.play().then(() => {
+                    isMusicPlaying = true;
+                    musicInitialized = true;
+                }).catch(e => {
+                });
+            } else {
+                loadAndPlayMusic();
+            }
+        }
+
+        document.addEventListener('visibilitychange', function() {
+            if (backgroundMusic && musicInitialized) {
+                if (document.hidden) {
+                    backgroundMusic.pause();
+                    isMusicPlaying = false;
+                } else {
+                    if (!isMusicPlaying) {
+                        backgroundMusic.play().then(() => {
+                            isMusicPlaying = true;
+                        }).catch(e => {
+                        });
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('click', function() {
+            if (backgroundMusic && !isMusicPlaying) {
+                startMusic();
+            }
+        });
+
+        document.addEventListener('keydown', function() {
+            if (backgroundMusic && !isMusicPlaying) {
+                startMusic();
+            }
+        });
+
+        document.addEventListener('mousemove', function() {
+            if (backgroundMusic && !isMusicPlaying) {
+                startMusic();
+            }
+        });
+
+        document.addEventListener('touchstart', function() {
+            if (backgroundMusic && !isMusicPlaying) {
+                startMusic();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            updateMusicButton();
+
+            setTimeout(() => {
+                loadAndPlayMusic();
+            }, 100);
+
+            setTimeout(() => {
+                if (!isMusicPlaying) {
+                    forceStartMusic();
+                }
+            }, 1000);
+
+            setTimeout(() => {
+                if (!isMusicPlaying) {
+                    forceStartMusic();
+                }
+            }, 2000);
+
+            setTimeout(() => {
+                if (!isMusicPlaying) {
+                    forceStartMusic();
+                }
+            }, 3000);
+
+            setTimeout(() => {
+                if (!isMusicPlaying) {
+                    forceStartMusic();
+                }
+            }, 5000);
+        });
+
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                if (!isMusicPlaying) {
+                    loadAndPlayMusic();
+                }
+            }, 500);
+        });
+
+        let character = {
+            x: 0,
+            y: 0,
+            direction: 0, // 0: kuzey, 1: doğu, 2: güney, 3: batı (başlangıçta kuzeye bakıyor)
+            score: 0
+        };
+
+        let gameBoard = [];
+
+        let commandQueue = []; // Henüz çalıştırılmamış komut listesi
+        let executedCommands = []; // Çalıştırılmış komutlar (görsel listede gösterilmek için)
+        let isExecutingCommands = false; // Komutlar çalışıyor mu?
+        let commandDelay = 600; // Her komut arası gecikme (milisaniye)
+
+        const walkableCells = new Set([
+            '0,0','0,1','0,2','0,4','0,5','0,6','0,7','0,8',
+            '1,0','1,2','1,3','1,4','1,5','1,6','1,7',
+            '2,7','2,8',
+            '3,0','3,1','3,2','3,3','3,4','3,6','3,7','3,8',
+            '4,0','4,1','4,3','4,4','4,5','4,6','4,8'
+        ]);
+        const GRID_HEIGHT = 5; // y: 0..4
+        const GRID_WIDTH = 9; // x: 0..8 (x=9 sütunu kaldırıldı)
+        let gameRunning = true;
+        let collectedItems = []; // Toplanan eşyalar listesi
+
+        const afadItems = ['bk_su.png', 'bk_duduk.png', 'bk_fener.png', 'bk_radyo.PNG', 'bk_ilk_yardim.png', 'bk_konserve.PNG', 'bk_evraklar.PNG', 'bk_para.PNG', 'bk_pil.PNG'];
+
+        const itemNames = {
+            'bk_duduk.png': 'Düdük',
+            'bk_ilk_yardim.png': 'İlk Yardım Çantası',
+            'bk_su.png': 'Su',
+            'bk_fener.png': 'Fener',
+            'bk_pil.PNG': 'Pil',
+            'bk_pil.png': 'Pil',
+            'bk_konserve.PNG': 'Konserve',
+            'bk_konserve.png': 'Konserve',
+            'bk_televizyon.PNG': 'Televizyon',
+            'bk_televizyon.png': 'Televizyon',
+            'bk_televizyon.jpg': 'Televizyon',
+            'bk_evraklar.PNG': 'Evraklar',
+            'bk_evraklar.png': 'Evraklar',
+            'bk_kamyon.png': 'Kamyon',
+            'bk_para.PNG': 'Para',
+            'bk_para.png': 'Para',
+            'bk_radyo.PNG': 'Pilli Radyo',
+            'bk_radyo.png': 'Pilli Radyo'
+        };
+
+        const fixedItems = [
+            {x: 1, y: 0, item: 'bk_pil.PNG'},
+            {x: 2, y: 1, item: 'bk_fener.png'},
+            {x: 3, y: 4, item: 'bk_ilk_yardim.png'},
+            {x: 5, y: 0, item: 'bk_konserve.PNG'},
+            {x: 6, y: 3, item: 'bk_duduk.png'},
+            {x: 8, y: 0, item: 'bk_para.PNG'},
+            {x: 8, y: 2, item: 'bk_radyo.PNG'},
+            {x: 8, y: 4, item: 'bk_su.png'}
+        ];
+
+        const defaultTileBackground = null; // arka plan görseli kullanılmıyor
+        const tileBackgrounds = {
+        };
+
+        function applyCellBackground(cell, x, y) {
+            const key = `${x},${y}`;
+            const bg = tileBackgrounds[key] || defaultTileBackground;
+            if (bg) {
+                cell.style.backgroundImage = `url('img/${bg}')`;
+                cell.style.backgroundSize = '100% 100%';
+                cell.style.backgroundPosition = 'center';
+                cell.style.backgroundRepeat = 'no-repeat';
+            }
+        }
+
+        function isWalkable(x, y) {
+            if (y < 0 || y >= GRID_HEIGHT || x < 0 || x >= GRID_WIDTH) return false;
+            return walkableCells.has(`${y},${x}`);
+        }
+
+        function createGameBoard() {
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${GRID_WIDTH}, 1fr)`;
+            grid.style.gridTemplateRows = `repeat(${GRID_HEIGHT}, 1fr)`;
+
+            const isGameBoardLoaded = gameBoard.length > 0 && gameBoard[0] && gameBoard[0].length > 0;
+
+            for (let y = 0; y < GRID_HEIGHT; y++) {
+                if (!isGameBoardLoaded) {
+                    gameBoard[y] = [];
+                }
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${x}-${y}`;
+                    if (!isWalkable(x, y)) {
+                        cell.classList.add('hidden');
+                        if (!isGameBoardLoaded) {
+                            gameBoard[y][x] = 'void';
+                        }
+                        grid.appendChild(cell);
+                        continue;
+                    }
+                    applyCellBackground(cell, x, y);
+
+                    if (x === 0 && y === 0) {
+                        cell.innerHTML = '';
+                        if (!isGameBoardLoaded) {
+                            gameBoard[y][x] = 'start';
+                        }
+                    }
+                    else if (x === 0 && y === 4) {
+                        cell.innerHTML = '<img src="img/bk_afad_cantasi.png" alt="Bitiş" class="finish-icon">';
+                        if (!isGameBoardLoaded) {
+                            gameBoard[y][x] = 'finish';
+                        }
+                    }
+                    else {
+                        const fixedItem = fixedItems.find(item => item.x === x && item.y === y);
+
+                        let cellValue = null;
+                        if (isGameBoardLoaded && gameBoard[y] && gameBoard[y][x] !== undefined) {
+                            cellValue = gameBoard[y][x];
+                        }
+
+                        if (cellValue && cellValue !== 'empty' && cellValue !== 'void' && cellValue !== 'start' && cellValue !== 'finish') {
+                                const itemName = itemNames[cellValue] || 'Bilinmeyen Malzeme';
+                                const img = document.createElement('img');
+                                img.className = 'item';
+                                img.src = 'img/' + escapeHTML(cellValue);
+                                img.alt = escapeHTML(itemName);
+                                img.title = escapeHTML(itemName);
+                                cell.innerHTML = '';
+                                cell.appendChild(img);
+                            } else if (cellValue === 'empty') {
+                                cell.innerHTML = '';
+                        } else if (fixedItem) {
+                                const itemName = itemNames[fixedItem.item] || 'Bilinmeyen Malzeme';
+                                const img = document.createElement('img');
+                                img.className = 'item';
+                                img.src = 'img/' + escapeHTML(fixedItem.item);
+                                img.alt = escapeHTML(itemName);
+                                img.title = escapeHTML(itemName);
+                                cell.innerHTML = '';
+                                cell.appendChild(img);
+                            if (!gameBoard[y]) gameBoard[y] = [];
+                                gameBoard[y][x] = fixedItem.item;
+                            } else {
+                            cell.innerHTML = '';
+                            if (!gameBoard[y]) gameBoard[y] = [];
+                                gameBoard[y][x] = 'empty';
+                        }
+                    }
+
+                    grid.appendChild(cell);
+                }
+            }
+
+            ensureCharacterLayer();
+            placeCharacter();
+            requestAnimationFrame(() => {
+                positionCharacterToCell(character.x, character.y, true);
+                requestAnimationFrame(() => {
+                    positionCharacterToCell(character.x, character.y, true);
+                });
+            });
+        }
+
+        let previousDirection = 0;
+        let previousX = 0;
+        let previousY = 0;
+        let currentRotation = 0; // Mevcut rotasyonu sakla
+
+        function ensureCharacterLayer() {
+            const grid = document.getElementById('gameGrid');
+            if (!grid) return;
+            let layer = document.getElementById('characterLayer');
+            if (!layer) {
+                layer = document.createElement('div');
+                layer.id = 'characterLayer';
+                grid.appendChild(layer);
+            }
+        }
+
+        function getCellMetrics(x, y) {
+            const cell = document.getElementById(`cell-${x}-${y}`);
+            const grid = document.getElementById('gameGrid');
+            if (!cell || !grid) return null;
+            const cellRect = cell.getBoundingClientRect();
+            const gridRect = grid.getBoundingClientRect();
+            return {
+                left: cellRect.left - gridRect.left,
+                top: cellRect.top - gridRect.top,
+                width: cellRect.width,
+                height: cellRect.height
+            };
+        }
+
+        function positionCharacterToCell(x, y, immediate = false) {
+            const charEl = document.getElementById('character');
+            const metrics = getCellMetrics(x, y);
+            if (!charEl || !metrics) return;
+
+            const prevTransition = charEl.style.transition;
+            if (immediate) {
+                charEl.style.transition = 'none';
+            }
+
+            charEl.style.left = metrics.left + 'px';
+            charEl.style.top = metrics.top + 'px';
+            charEl.style.width = metrics.width + 'px';
+            charEl.style.height = metrics.height + 'px';
+            charEl.style.visibility = 'visible';
+
+            if (immediate) {
+                requestAnimationFrame(() => {
+                    charEl.style.transition = prevTransition || '';
+                });
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            positionCharacterToCell(character.x, character.y, true);
+            if (commandQueue.length > 0) {
+                setTimeout(() => updatePathPreview(), 100);
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const gridEl = document.getElementById('gameGrid');
+            if (window.ResizeObserver && gridEl) {
+                const ro = new ResizeObserver(() => {
+                    positionCharacterToCell(character.x, character.y, true);
+                    if (commandQueue.length > 0) {
+                        setTimeout(() => updatePathPreview(), 100);
+                    }
+                });
+                ro.observe(gridEl);
+            }
+        });
+
+        function placeCharacter() {
+            ensureCharacterLayer();
+            const layer = document.getElementById('characterLayer');
+            if (!layer) return;
+            const existing = document.getElementById('character');
+            if (existing) existing.remove();
+
+            const charDiv = document.createElement('div');
+            charDiv.className = 'character';
+            charDiv.id = 'character';
+            charDiv.innerHTML = '<img src="img/bk_karakter.png" alt="Karakter">';
+            charDiv.style.visibility = 'hidden';
+            currentRotation = character.direction * 90;
+            const imgElement = charDiv.querySelector('img');
+            if (imgElement) {
+                imgElement.style.transform = `rotate(${currentRotation}deg)`;
+                imgElement.style.setProperty('--rot', `${currentRotation}deg`);
+            }
+            layer.appendChild(charDiv);
+            positionCharacterToCell(character.x, character.y, true);
+            previousDirection = character.direction;
+            previousX = character.x;
+            previousY = character.y;
+        }
+
+        function moveCharacter(isRotation = false) {
+            const charEl = document.getElementById('character');
+            const img = charEl ? charEl.querySelector('img') : null;
+            const wasMoving = (character.x !== previousX || character.y !== previousY);
+
+            if (img) {
+                if (isRotation && !wasMoving) {
+                    positionCharacterToCell(character.x, character.y, true);
+
+                    const directionDiff = (character.direction - previousDirection + 4) % 4;
+                    if (directionDiff === 1) {
+                        currentRotation += 90;
+                        img.style.setProperty('--tilt', '4deg');
+                        requestAnimationFrame(() => spawnTurnAir(charEl, 'right'));
+                    } else if (directionDiff === 3) {
+                        currentRotation -= 90;
+                        img.style.setProperty('--tilt', '-4deg');
+                        requestAnimationFrame(() => spawnTurnAir(charEl, 'left'));
+                    } else if (directionDiff === 2) { // 180°
+                        currentRotation += 180;
+                        img.style.setProperty('--tilt', '0deg');
+                        requestAnimationFrame(() => spawnTurnAir(charEl, 'both'));
+                    }
+                    img.style.transform = `rotate(${currentRotation}deg)`;
+                    img.style.setProperty('--rot', `${currentRotation}deg`);
+                    charEl.classList.add('turning');
+                    img.addEventListener('animationend', () => {
+                        charEl.classList.remove('turning');
+                    }, { once: true });
+                    previousDirection = character.direction;
+                    updatePosition();
+                    return;
+                }
+
+                if (wasMoving) {
+                    currentRotation = character.direction * 90;
+                    img.style.transform = `rotate(${currentRotation}deg)`;
+                    img.style.setProperty('--rot', `${currentRotation}deg`);
+                    charEl.classList.add('moving');
+                    img.addEventListener('animationend', () => {
+                        charEl.classList.remove('moving');
+                    }, { once: true });
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => spawnMoveAir(charEl, character.direction));
+                    });
+                } else {
+                    currentRotation = character.direction * 90;
+                    img.style.transform = `rotate(${currentRotation}deg)`;
+                    img.style.setProperty('--rot', `${currentRotation}deg`);
+                }
+            }
+
+            positionCharacterToCell(character.x, character.y, false);
+
+            previousDirection = character.direction;
+            previousX = character.x;
+            previousY = character.y;
+            updatePosition();
+        }
+
+        function spawnMoveAir(charEl, direction) {
+            const layer = document.getElementById('characterLayer');
+            if (!layer || !charEl) return;
+            const rect = charEl.getBoundingClientRect();
+            const layerRect = layer.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            const count = 2;
+            for (let i = 0; i < count; i++) {
+                const trail = document.createElement('div');
+                trail.className = 'elegant-trail';
+
+                let x = rect.left - layerRect.left;
+                let y = rect.top - layerRect.top;
+
+                let dx, dy; // Hareket yönü (px cinsinden)
+
+                if (direction === 0) { // Kuzeye bakıyor (yukarı) - arkada alt kısımdan çık
+                    x += w * (0.3 + Math.random() * 0.4);
+                    y += h * (0.75 + Math.random() * 0.15); // Alt kısım
+                    dx = (Math.random() - 0.5) * 8; // Yatay rastgele
+                    dy = 30 + Math.random() * 10; // Aşağı doğru (daha uzak)
+                } else if (direction === 1) { // Doğuya bakıyor (sağ) - arkada sol kısımdan çık
+                    x += w * (0.1 + Math.random() * 0.15); // Sol kısım
+                    y += h * (0.3 + Math.random() * 0.4);
+                    dx = -30 - Math.random() * 10; // Sola doğru (daha uzak)
+                    dy = (Math.random() - 0.5) * 8; // Dikey rastgele
+                } else if (direction === 2) { // Güneye bakıyor (aşağı) - arkada üst kısımdan çık
+                    x += w * (0.3 + Math.random() * 0.4);
+                    y += h * (0.05 + Math.random() * 0.15); // Üst kısım
+                    dx = (Math.random() - 0.5) * 8; // Yatay rastgele
+                    dy = -30 - Math.random() * 10; // Yukarı doğru (daha uzak)
+                } else if (direction === 3) { // Batıya bakıyor (sol) - arkada sağ kısımdan çık
+                    x += w * (0.75 + Math.random() * 0.15); // Sağ kısım
+                    y += h * (0.3 + Math.random() * 0.4);
+                    dx = 30 + Math.random() * 10; // Sağa doğru (daha uzak)
+                    dy = (Math.random() - 0.5) * 8; // Dikey rastgele
+                }
+
+                trail.style.setProperty('--dx', dx + 'px');
+                trail.style.setProperty('--dy', dy + 'px');
+
+                trail.style.left = `${x}px`;
+                trail.style.top = `${y}px`;
+                trail.style.opacity = String(0.6 + Math.random() * 0.3);
+                layer.appendChild(trail);
+                trail.addEventListener('animationend', () => trail.remove(), { once: true });
+            }
+        }
+
+        function spawnTurnAir(charEl, turnDirection) {
+            const layer = document.getElementById('characterLayer');
+            if (!layer || !charEl) return;
+
+            const rect = charEl.getBoundingClientRect();
+            const layerRect = layer.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            const count = turnDirection === 'both' ? 4 : 3;
+
+            const baseAngle = previousDirection * Math.PI / 2;
+            const backAngle = baseAngle + Math.PI; // Arka yön
+
+            if (turnDirection === 'both') {
+                const centerX = rect.left - layerRect.left + w / 2;
+                const centerY = rect.top - layerRect.top + h / 2;
+                const distance = Math.min(w, h) * 0.4;
+
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'elegant-turn';
+
+                    const angle = baseAngle + (i / count) * Math.PI * 2;
+                    const cosAngle = Math.cos(angle);
+                    const sinAngle = Math.sin(angle);
+                    const x = centerX + cosAngle * distance;
+                    const y = centerY + sinAngle * distance;
+
+                    particle.style.left = `${x}px`;
+                    particle.style.top = `${y}px`;
+                    particle.style.setProperty('--cos-angle', cosAngle);
+                    particle.style.setProperty('--sin-angle', sinAngle);
+                    particle.style.setProperty('--distance', distance + 'px');
+                    particle.style.opacity = String(0.65 + Math.random() * 0.25);
+
+                    layer.appendChild(particle);
+                    particle.addEventListener('animationend', () => particle.remove(), { once: true });
+                }
+            } else if (turnDirection === 'left') {
+                let startX, startY;
+
+                if (previousDirection === 0) { // Kuzey
+                    startX = rect.left - layerRect.left + w * 0.15;
+                    startY = rect.top - layerRect.top + h * 0.85;
+                } else if (previousDirection === 1) { // Doğu
+                    startX = rect.left - layerRect.left + w * 0.15;
+                    startY = rect.top - layerRect.top + h * 0.15;
+                } else if (previousDirection === 2) { // Güney
+                    startX = rect.left - layerRect.left + w * 0.85;
+                    startY = rect.top - layerRect.top + h * 0.15;
+                } else { // Batı
+                    startX = rect.left - layerRect.left + w * 0.85;
+                    startY = rect.top - layerRect.top + h * 0.85;
+                }
+
+                const diagonalAngle = backAngle - Math.PI / 4;
+                const spreadX = w * 0.4;
+                const spreadY = h * 0.3;
+                const distance = Math.min(w, h) * 0.4;
+
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'elegant-turn';
+
+                    const x = startX + (Math.random() - 0.5) * spreadX;
+                    const y = startY + (Math.random() - 0.5) * spreadY;
+
+                    const spread = (Math.random() - 0.5) * (Math.PI / 3);
+                    const angle = diagonalAngle + spread;
+                    const cosAngle = Math.cos(angle);
+                    const sinAngle = Math.sin(angle);
+
+                    particle.style.left = `${x}px`;
+                    particle.style.top = `${y}px`;
+                    particle.style.setProperty('--move-x-50', (distance * 0.6 * cosAngle) + 'px');
+                    particle.style.setProperty('--move-y-50', (distance * 0.6 * sinAngle) + 'px');
+                    particle.style.setProperty('--move-x-100', (distance * 1.0 * cosAngle) + 'px');
+                    particle.style.setProperty('--move-y-100', (distance * 1.0 * sinAngle) + 'px');
+                    particle.style.opacity = String(0.75 + Math.random() * 0.2);
+
+                    layer.appendChild(particle);
+                    particle.addEventListener('animationend', () => particle.remove(), { once: true });
+                }
+            } else if (turnDirection === 'right') {
+                let startX, startY;
+
+                if (previousDirection === 0) { // Kuzey
+                    startX = rect.left - layerRect.left + w * 0.85;
+                    startY = rect.top - layerRect.top + h * 0.85;
+                } else if (previousDirection === 1) { // Doğu
+                    startX = rect.left - layerRect.left + w * 0.85;
+                    startY = rect.top - layerRect.top + h * 0.15;
+                } else if (previousDirection === 2) { // Güney
+                    startX = rect.left - layerRect.left + w * 0.15;
+                    startY = rect.top - layerRect.top + h * 0.85;
+                } else { // Batı
+                    startX = rect.left - layerRect.left + w * 0.15;
+                    startY = rect.top - layerRect.top + h * 0.15;
+                }
+
+                const diagonalAngle = backAngle + Math.PI / 4;
+                const spreadX = w * 0.4;
+                const spreadY = h * 0.3;
+                const distance = Math.min(w, h) * 0.4;
+
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'elegant-turn';
+
+                    const x = startX + (Math.random() - 0.5) * spreadX;
+                    const y = startY + (Math.random() - 0.5) * spreadY;
+
+                    const spread = (Math.random() - 0.5) * (Math.PI / 3);
+                    const angle = diagonalAngle + spread;
+                    const cosAngle = Math.cos(angle);
+                    const sinAngle = Math.sin(angle);
+
+                    particle.style.left = `${x}px`;
+                    particle.style.top = `${y}px`;
+                    particle.style.setProperty('--move-x-50', (distance * 0.6 * cosAngle) + 'px');
+                    particle.style.setProperty('--move-y-50', (distance * 0.6 * sinAngle) + 'px');
+                    particle.style.setProperty('--move-x-100', (distance * 1.0 * cosAngle) + 'px');
+                    particle.style.setProperty('--move-y-100', (distance * 1.0 * sinAngle) + 'px');
+                    particle.style.opacity = String(0.75 + Math.random() * 0.2);
+
+                    layer.appendChild(particle);
+                    particle.addEventListener('animationend', () => particle.remove(), { once: true });
+                }
+            }
+        }
+
+        function guncelleYildizlar() {
+            const starsElement = document.getElementById('stars');
+            if (!starsElement) return;
+
+            const toplananEsyaSayisi = collectedItems.filter(item => item.isAfad).length;
+
+            const chips = [];
+            for (let i = 0; i < toplananEsyaSayisi; i++) chips.push('<span class="star-chip">⭐</span>');
+            starsElement.innerHTML = chips.join(' ');
+        }
+
+        function updatePosition() {
+            guncelleYildizlar();
+        }
+
+        function triggerWrongMoveFeedback() {
+            try {
+                const wrongSound = new Audio('sounds/bk_wrong.mp3');
+                wrongSound.volume = 0.5;
+                wrongSound.play().catch(() => {});
+            } catch(_) {}
+
+            document.body.classList.add('failed-shake');
+            setTimeout(() => {
+                document.body.classList.remove('failed-shake');
+            }, 600);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'failed-overlay';
+            document.body.appendChild(overlay);
+            setTimeout(() => {
+                overlay.remove();
+            }, 600);
+        }
+
+        function collectItem() {
+            if (!gameBoard[character.y] || !gameBoard[character.y][character.x]) {
+                return; // Geçersiz konum
+            }
+
+            const item = gameBoard[character.y][character.x];
+
+            if (item && item !== 'empty' && item !== 'void' && item !== 'start' && item !== 'finish') {
+                const itemName = itemNames[item] || 'Bilinmeyen Malzeme';
+                const cell = document.getElementById(`cell-${character.x}-${character.y}`);
+                const itemImg = cell ? cell.querySelector('.item') : null;
+
+                const isAfadItem = afadItems.includes(item);
+
+                if (!isAfadItem && itemImg) {
+                    const wrongSound = new Audio('sounds/bk_wrong.mp3');
+                    wrongSound.volume = 0.5; // %50 ses seviyesi
+                    wrongSound.play().catch(() => {});
+
+                    document.body.classList.add('failed-shake');
+                    setTimeout(() => {
+                        document.body.classList.remove('failed-shake');
+                    }, 600);
+
+                    const overlay = document.createElement('div');
+                    overlay.className = 'failed-overlay';
+                    document.body.appendChild(overlay);
+                    setTimeout(() => {
+                        overlay.remove();
+                    }, 600);
+
+                    const itemRect = itemImg.getBoundingClientRect();
+
+                    const popup = itemImg.cloneNode(true);
+                    popup.className = 'item-popup failed'; // Başarısızlık efekti için 'failed' class'ı eklendi
+                    popup.style.position = 'fixed';
+
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+
+                    popup.style.left = centerX + 'px';
+                    popup.style.top = centerY + 'px';
+                    popup.style.width = itemRect.width + 'px';
+                    popup.style.height = itemRect.height + 'px';
+                    popup.style.marginLeft = '-' + (itemRect.width / 2) + 'px';
+                    popup.style.marginTop = '-' + (itemRect.height / 2) + 'px';
+                    popup.style.zIndex = '10001'; // Overlay'in üstünde
+                    popup.style.pointerEvents = 'none';
+                    popup.style.transform = 'scale(0.3)';
+                    popup.style.opacity = '0';
+                    popup.style.transformOrigin = 'center center';
+
+                    document.body.appendChild(popup);
+
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            popup.style.setProperty('--scale', '2.2'); // CSS animasyonu için scale değişkeni
+                            popup.style.transition = 'opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                            popup.style.transform = 'scale(2.2)';
+                            popup.style.opacity = '1';
+
+                            setTimeout(() => {
+                                popup.style.setProperty('--scale', '2.5'); // Scale'i güncelle
+                                popup.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+                                popup.style.transform = 'scale(2.5) translateY(-90px)';
+                                popup.style.opacity = '0';
+                            }, 900); // Titreme animasyonu bitene kadar bekle (600ms + 300ms)
+
+                            setTimeout(() => {
+                                popup.remove();
+                                restartGame();
+                            }, 1150); // Toplam animasyon süresi: 900ms + 250ms
+                        });
+                    });
+                }
+
+                if (isAfadItem) {
+                    const correctSound = new Audio('sounds/bk_correct.mp3');
+                    correctSound.volume = 0.5; // %50 ses seviyesi
+                    correctSound.play().catch(() => {});
+
+                    if (itemImg) {
+                        const itemRect = itemImg.getBoundingClientRect();
+
+                        const popup = itemImg.cloneNode(true);
+                        popup.className = 'item-popup success'; // Başarı efekti için 'success' class'ı
+                        popup.style.position = 'fixed';
+
+                        const centerX = window.innerWidth / 2;
+                        const centerY = window.innerHeight / 2;
+
+                        popup.style.left = centerX + 'px';
+                        popup.style.top = centerY + 'px';
+                        popup.style.width = itemRect.width + 'px';
+                        popup.style.height = itemRect.height + 'px';
+                        popup.style.marginLeft = '-' + (itemRect.width / 2) + 'px';
+                        popup.style.marginTop = '-' + (itemRect.height / 2) + 'px';
+                        popup.style.zIndex = '10000';
+                        popup.style.pointerEvents = 'none';
+                        popup.style.transform = 'scale(0.3)';
+                        popup.style.opacity = '0';
+                        popup.style.transformOrigin = 'center center';
+
+                        document.body.appendChild(popup);
+
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                popup.style.transition = 'opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                                popup.style.transform = 'scale(2.2)';
+                                popup.style.opacity = '1';
+
+                                setTimeout(() => {
+                                    popup.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+                                    popup.style.transform = 'scale(2.5) translateY(-90px)';
+                                    popup.style.opacity = '0';
+                                }, 300);
+
+                                setTimeout(() => {
+                                    popup.remove();
+                                }, 550);
+                            });
+                        });
+                    }
+
+                    collectedItems.unshift({
+                        name: itemName,
+                        image: item,
+                        isAfad: true
+                    });
+
+                    character.score += 1;
+
+                    gameBoard[character.y][character.x] = 'empty';
+                    if (cell) {
+                        cell.innerHTML = '';
+                    }
+
+                    positionCharacterToCell(character.x, character.y, false);
+
+                    updateCollectedItemsList();
+
+                    guncelleYildizlar();
+                } else {
+                    gameBoard[character.y][character.x] = 'empty';
+                    if (cell) {
+                        cell.innerHTML = '';
+                    }
+
+                    commandQueue = [];
+                    executedCommands = [];
+                    isExecutingCommands = false;
+
+                    const previewLayer = document.getElementById('pathPreviewLayer');
+                    if (previewLayer) {
+                        previewLayer.innerHTML = '';
+                    }
+
+                    updateCommandList();
+
+                    saveGameState();
+
+                    const startButton = document.getElementById('startButton');
+                    if (startButton) {
+                        startButton.disabled = false;
+                        startButton.textContent = 'Başlat';
+                    }
+                }
+            }
+        }
+
+        function updateCollectedItemsList() {
+            const listContainer = document.getElementById('collectedItemsList');
+
+            if (collectedItems.length === 0) {
+                listContainer.innerHTML = '<div class="no-items">Henüz eşya toplanmadı</div>';
+            } else {
+                listContainer.innerHTML = '';
+                collectedItems.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'collected-item' + (item.isAfad ? ' afad-item' : '');
+                    div.title = escapeHTML(item.name);
+                    const img = document.createElement('img');
+                    img.src = 'img/' + escapeHTML(item.image);
+                    img.alt = escapeHTML(item.name);
+                    div.appendChild(img);
+                    listContainer.appendChild(div);
+                });
+            }
+        }
+
+        function showMessage(text, type, persist = false) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.classList.remove('hidden');
+
+            if (!persist) {
+                setTimeout(() => {
+                    messageDiv.classList.add('hidden');
+                }, 4000); // mesajların sayfada görünme süresi
+            }
+        }
+
+        function endGame() {
+            gameRunning = false;
+            showCompletionEffects();
+        }
+
+        let completionAnimationActive = false;
+        let animationTimeouts = []; // Tüm setTimeout referanslarını sakla
+
+        function showCompletionEffects() {
+            if (completionAnimationActive) return;
+
+            const leftFore = document.getElementById('leftFore');
+            if (!leftFore) return;
+
+            completionAnimationActive = true;
+
+            try {
+                const winSound = new Audio('sounds/level_complete.mp3');
+                winSound.volume = 0.6;
+                winSound.play().catch(() => {});
+            } catch(_) {}
+
+            animationTimeouts.forEach(timeout => clearTimeout(timeout));
+            animationTimeouts = [];
+
+            const lfRect = leftFore.getBoundingClientRect();
+
+            let popup = document.getElementById('completion-popup');
+            if (popup) {
+                popup.remove();
+            }
+
+            popup = document.createElement('div');
+            popup.id = 'completion-popup';
+            popup.className = 'completion-popup';
+
+            const clone = leftFore.cloneNode(true);
+            clone.id = 'completion-popup-content';
+            popup.appendChild(clone);
+
+            const borderWidth = 3;
+            const padding = 12;
+            const totalWidth = lfRect.width + (borderWidth * 2);
+            const totalHeight = lfRect.height + (borderWidth * 2);
+
+            popup.style.setProperty('--popup-width', totalWidth + 'px');
+
+            document.body.appendChild(popup);
+
+            void popup.offsetHeight;
+
+            popup.classList.add('completion-popup-active');
+
+            const timeout1 = setTimeout(() => {
+                createCompletionAnimation();
+            }, 100);
+            animationTimeouts.push(timeout1);
+        }
+
+        function createCompletionAnimation() {
+            if (document.body.classList.contains('completion-bg-active')) {
+                return;
+            }
+
+            document.body.classList.add('completion-bg-active');
+
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const colors = ['#1E3A8A', '#FF8A00', '#1E88E5', '#1565C0', '#FFA726', '#FB8C00', '#2E7D32', '#388E3C'];
+
+            const fragment = document.createDocumentFragment();
+            const confettiElements = [];
+            for (let i = 0; i < 50; i++) {
+                const angle = (i * 7.2) * Math.PI / 180;
+                const distance = 400 + Math.random() * 300;
+                const endX = centerX + Math.cos(angle) * distance;
+                const endY = centerY + Math.sin(angle) * distance;
+                const size = 10 + Math.random() * 8;
+                const c = document.createElement('div');
+                c.className = 'confetti';
+                c.style.left = centerX + 'px';
+                c.style.top = centerY + 'px';
+                c.style.width = size + 'px';
+                c.style.height = size + 'px';
+                c.style.marginLeft = (-size / 2) + 'px';
+                c.style.marginTop = (-size / 2) + 'px';
+                c.style.backgroundColor = colors[i % colors.length];
+                c.style.setProperty('--end-x', (endX - centerX) + 'px');
+                c.style.setProperty('--end-y', (endY - centerY) + 'px');
+                c.style.setProperty('--delay', (Math.random() * 0.2) + 's');
+                c.style.setProperty('--duration', (2.5 + Math.random() * 0.5) + 's');
+                fragment.appendChild(c);
+                confettiElements.push(c);
+            }
+            document.body.appendChild(fragment);
+
+            const confettiTimeout = setTimeout(() => {
+                if (!completionAnimationActive) return;
+                confettiElements.forEach(c => {
+                    if (c && c.parentNode) c.remove();
+                });
+            }, 4000);
+            animationTimeouts.push(confettiTimeout);
+
+            const starTimeout = setTimeout(() => {
+                if (!completionAnimationActive) return;
+
+                const starFragment = document.createDocumentFragment();
+                const starElements = [];
+                for (let i = 0; i < 30; i++) {
+                    const star = document.createElement('div');
+                    star.className = 'star-burst';
+                    const angle = (i * 12) * Math.PI / 180;
+                    const distance = 250 + Math.random() * 200;
+                    const endX = centerX + Math.cos(angle) * distance;
+                    const endY = centerY + Math.sin(angle) * distance;
+                    star.style.left = centerX + 'px';
+                    star.style.top = centerY + 'px';
+                    star.style.marginLeft = '-8px';
+                    star.style.marginTop = '-8px';
+                    star.style.setProperty('--end-x', (endX - centerX) + 'px');
+                    star.style.setProperty('--end-y', (endY - centerY) + 'px');
+                    starFragment.appendChild(star);
+                    starElements.push(star);
+                }
+                document.body.appendChild(starFragment);
+
+                const starRemoveTimeout = setTimeout(() => {
+                    if (!completionAnimationActive) return;
+                    starElements.forEach(star => {
+                        if (star && star.parentNode) star.remove();
+                    });
+                }, 3000);
+                animationTimeouts.push(starRemoveTimeout);
+            }, 500);
+            animationTimeouts.push(starTimeout);
+
+            const rainTimeout = setTimeout(() => {
+                if (!completionAnimationActive) return;
+
+                const rainFragment = document.createDocumentFragment();
+                const rainElements = [];
+                for (let j = 0; j < 15; j++) {
+                    const size = 8 + Math.random() * 6;
+                    const randomX = (Math.random() - 0.5) * 80;
+                    const c = document.createElement('div');
+                    c.className = 'confetti-rain';
+                    c.style.left = Math.random() * 100 + '%';
+                    c.style.top = '-20px';
+                    c.style.width = size + 'px';
+                    c.style.height = size + 'px';
+                    c.style.marginLeft = (-size / 2) + 'px';
+                    c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    c.style.setProperty('--random-x', randomX + 'px');
+                    c.style.setProperty('--delay', (Math.random() * 0.3) + 's');
+                    c.style.setProperty('--duration', (3.5 + Math.random() * 1) + 's');
+                    rainFragment.appendChild(c);
+                    rainElements.push(c);
+                }
+                document.body.appendChild(rainFragment);
+
+                const rainRemoveTimeout = setTimeout(() => {
+                    if (!completionAnimationActive) return;
+                    rainElements.forEach(c => {
+                        if (c && c.parentNode) c.remove();
+                    });
+                }, 6000);
+                animationTimeouts.push(rainRemoveTimeout);
+            }, 800);
+            animationTimeouts.push(rainTimeout);
+        }
+
+        function clearCompletionEffects() {
+            completionAnimationActive = false;
+
+            animationTimeouts.forEach(timeout => clearTimeout(timeout));
+            animationTimeouts = [];
+
+            document.body.classList.remove('completion-bg-active');
+
+            document.querySelectorAll('.confetti, .confetti-rain, .star-burst').forEach(el => el.remove());
+
+            const popup = document.getElementById('completion-popup');
+            if (popup) {
+                popup.classList.remove('completion-popup-active');
+                const popupTimeout = setTimeout(() => {
+                    if (popup.parentNode) popup.remove();
+                }, 300);
+                animationTimeouts.push(popupTimeout);
+            }
+        }
+
+        function restartGame() {
+            clearCompletionEffects();
+
+            commandQueue = [];
+            executedCommands = [];
+            isExecutingCommands = false;
+
+            const previewLayer = document.getElementById('pathPreviewLayer');
+            if (previewLayer) {
+                previewLayer.innerHTML = '';
+            }
+
+            updateCommandList();
+
+            const startButton = document.getElementById('startButton');
+            if (startButton) {
+                startButton.disabled = false;
+                startButton.textContent = 'Başlat';
+            }
+
+            localStorage.removeItem('bilgisayarsiz_kodlama_state');
+
+            gameBoard = [];
+
+            character = {
+                x: 0,
+                y: 0,
+                direction: 0, // Başlangıçta kuzeye bakıyor
+                score: 0
+            };
+
+            previousX = 0;
+            previousY = 0;
+            previousDirection = 0;
+            currentRotation = 0;
+
+            gameRunning = true;
+            collectedItems = []; // Toplanan eşyalar listesini temizle
+
+            createGameBoard();
+
+            setTimeout(() => {
+                positionCharacterToCell(character.x, character.y, true);
+            }, 0);
+
+            updateCollectedItemsList(); // Listeyi güncelle
+            guncelleYildizlar(); // Yıldızları güncelle
+
+            const messageDiv = document.getElementById('message');
+            if (messageDiv) {
+                messageDiv.classList.add('hidden');
+                messageDiv.textContent = '';
+            }
+        }
+
+        function refreshGame() {
+            clearCompletionEffects();
+
+            commandQueue = [];
+            executedCommands = [];
+            isExecutingCommands = false;
+
+            const previewLayer = document.getElementById('pathPreviewLayer');
+            if (previewLayer) {
+                previewLayer.innerHTML = '';
+            }
+
+            updateCommandList();
+
+            const startButton = document.getElementById('startButton');
+            if (startButton) {
+                startButton.disabled = false;
+                startButton.textContent = 'Başlat';
+            }
+
+            localStorage.removeItem('bilgisayarsiz_kodlama_state');
+
+            character = {
+                x: 0,
+                y: 0,
+                direction: 0, // Başlangıçta kuzeye bakıyor
+                score: 0
+            };
+
+            previousX = 0;
+            previousY = 0;
+            previousDirection = 0;
+            currentRotation = 0;
+
+            gameRunning = true;
+            collectedItems = []; // Toplanan eşyalar listesini temizle
+
+            createRandomGameBoard();
+
+            setTimeout(() => {
+                positionCharacterToCell(character.x, character.y, true);
+            }, 0);
+
+            updateCollectedItemsList(); // Listeyi güncelle
+            guncelleYildizlar(); // Yıldızları güncelle
+
+            const messageDiv = document.getElementById('message');
+            if (messageDiv) {
+                messageDiv.classList.add('hidden');
+                messageDiv.textContent = '';
+            }
+        }
+
+        function createRandomGameBoard() {
+            const grid = document.getElementById('gameGrid');
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${GRID_WIDTH}, 1fr)`;
+            grid.style.gridTemplateRows = `repeat(${GRID_HEIGHT}, 1fr)`;
+
+            for (let y = 0; y < GRID_HEIGHT; y++) {
+                gameBoard[y] = [];
+                for (let x = 0; x < GRID_WIDTH; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${x}-${y}`;
+                    if (!isWalkable(x, y)) {
+                        cell.classList.add('hidden');
+                        gameBoard[y][x] = 'void';
+                        grid.appendChild(cell);
+                        continue;
+                    }
+                    applyCellBackground(cell, x, y);
+
+                    if (x === 0 && y === 0) {
+                        cell.innerHTML = '';
+                        gameBoard[y][x] = 'start';
+                    }
+                    else if (x === 0 && y === 4) {
+                        cell.innerHTML = '<img src="img/bk_afad_cantasi.png" alt="Bitiş" class="finish-icon">';
+                        gameBoard[y][x] = 'finish';
+                    }
+                    else if (Math.random() < 0.3 && !(x === 0 && y === 0) && !(x === 0 && y === 4)) {
+                        const items = ['bk_konserve.PNG', 'bk_pil.PNG', 'bk_fener.png', 'bk_para.PNG', 'bk_radyo.PNG', 'bk_su.png', 'bk_duduk.png', 'bk_ilk_yardim.png', 'bk_evraklar.PNG', 'bk_televizyon.PNG'];
+                        const randomItem = items[Math.floor(Math.random() * items.length)];
+                        const itemName = itemNames[randomItem] || 'Bilinmeyen Malzeme';
+                        const img = document.createElement('img');
+                        img.className = 'item';
+                        img.src = 'img/' + escapeHTML(randomItem);
+                        img.alt = escapeHTML(itemName);
+                        img.title = escapeHTML(itemName);
+                        cell.innerHTML = '';
+                        cell.appendChild(img);
+                        gameBoard[y][x] = randomItem;
+                    } else {
+                        gameBoard[y][x] = 'empty';
+                    }
+
+                    grid.appendChild(cell);
+                }
+            }
+
+            placeCharacter();
+
+            if (commandQueue.length > 0) {
+                setTimeout(() => updatePathPreview(), 100);
+            }
+        }
+
+        function addCommand(action) {
+            if (isExecutingCommands) return; // Komutlar çalışırken yeni komut eklenemez
+            if (!gameRunning) return;
+
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+
+            commandQueue.push(action);
+            updateCommandList();
+
+            saveGameState();
+
+            setTimeout(() => {
+                const commandListEl = document.getElementById('commandList');
+                const cmdItems = document.querySelectorAll('.command-item');
+                const newCommandIndex = executedCommands.length + commandQueue.length - 1;
+                
+                if (commandListEl && cmdItems[newCommandIndex]) {
+                    const targetItem = cmdItems[newCommandIndex];
+                    const listRect = commandListEl.getBoundingClientRect();
+                    const itemRect = targetItem.getBoundingClientRect();
+                    
+                    const scrollLeft = commandListEl.scrollLeft;
+                    const itemLeft = itemRect.left - listRect.left + scrollLeft;
+                    const itemWidth = itemRect.width;
+                    const listWidth = listRect.width;
+                    
+                    const targetScroll = itemLeft - (listWidth / 2) + (itemWidth / 2);
+                    
+                    commandListEl.scrollTo({
+                        left: targetScroll,
+                        behavior: 'smooth'
+                    });
+                }
+            }, 50);
+        }
+
+        function updateCommandList() {
+            const commandListEl = document.getElementById('commandList');
+            if (!commandListEl) return;
+
+            if (commandQueue.length === 0 && executedCommands.length === 0) {
+                commandListEl.innerHTML = '<div class="no-commands">Henüz komut eklenmedi</div>';
+            } else {
+                commandListEl.innerHTML = '';
+                let visualIndex = 0;
+
+                executedCommands.forEach((cmd) => {
+                    const cmdEl = document.createElement('div');
+                    cmdEl.className = 'command-item executed';
+                    cmdEl.dataset.index = visualIndex++;
+                    cmdEl.style.opacity = '0.5'; // Çalıştırılmış komutlar soluk
+
+                    let icon = '';
+                    let text = '';
+                    switch(cmd) {
+                        case 'up':
+                            icon = '<i class="fas fa-arrow-up"></i>';
+                            text = 'İleri';
+                            break;
+                        case 'left':
+                            icon = '<i class="fas fa-arrow-left"></i>';
+                            text = 'Sol';
+                            break;
+                        case 'right':
+                            icon = '<i class="fas fa-arrow-right"></i>';
+                            text = 'Sağ';
+                            break;
+                        case 'space':
+                            icon = '<i class="fas fa-hand-paper"></i>';
+                            text = 'Topla';
+                            break;
+                    }
+
+                    cmdEl.innerHTML = `<span class="command-icon">${icon}</span><span class="command-text">${text}</span>`;
+                    commandListEl.appendChild(cmdEl);
+                });
+
+                commandQueue.forEach((cmd) => {
+                    const cmdEl = document.createElement('div');
+                    cmdEl.className = 'command-item';
+                    cmdEl.dataset.index = visualIndex++;
+
+                    let icon = '';
+                    let text = '';
+                    switch(cmd) {
+                        case 'up':
+                            icon = '<i class="fas fa-arrow-up"></i>';
+                            text = 'İleri';
+                            break;
+                        case 'left':
+                            icon = '<i class="fas fa-arrow-left"></i>';
+                            text = 'Sol';
+                            break;
+                        case 'right':
+                            icon = '<i class="fas fa-arrow-right"></i>';
+                            text = 'Sağ';
+                            break;
+                        case 'space':
+                            icon = '<i class="fas fa-hand-paper"></i>';
+                            text = 'Topla';
+                            break;
+                    }
+
+                    cmdEl.innerHTML = `<span class="command-icon">${icon}</span><span class="command-text">${text}</span>`;
+                    commandListEl.appendChild(cmdEl);
+                });
+
+                updatePathPreview();
+            }
+        }
+
+        function updatePathPreview() {
+            if (isExecutingCommands) {
+                return;
+            }
+
+            if (commandQueue.length === 0) {
+                const previewLayer = document.getElementById('pathPreviewLayer');
+                if (previewLayer) {
+                    previewLayer.innerHTML = '';
+                }
+                return;
+            }
+
+            let simX = character.x;
+            let simY = character.y;
+            let simDirection = character.direction;
+            const previewPath = [{x: simX, y: simY, direction: simDirection}]; // Mevcut konumdan başlangıç
+
+            for (let i = 0; i < commandQueue.length; i++) {
+                const cmd = commandQueue[i];
+
+                switch(cmd) {
+                    case 'left':
+                        simDirection = (simDirection + 3) % 4;
+                        if (previewPath.length > 0) {
+                            const lastPathPoint = previewPath[previewPath.length - 1];
+                            if (lastPathPoint.x === simX && lastPathPoint.y === simY) {
+                                lastPathPoint.direction = simDirection;
+                            } else {
+                                previewPath.push({x: simX, y: simY, direction: simDirection});
+                            }
+                        }
+                        break;
+                    case 'right':
+                        simDirection = (simDirection + 1) % 4;
+                        if (previewPath.length > 0) {
+                            const lastPathPoint = previewPath[previewPath.length - 1];
+                            if (lastPathPoint.x === simX && lastPathPoint.y === simY) {
+                                lastPathPoint.direction = simDirection;
+                            } else {
+                                previewPath.push({x: simX, y: simY, direction: simDirection});
+                            }
+                        }
+                        break;
+                    case 'up':
+                        let newX = simX;
+                        let newY = simY;
+
+                        if (simDirection === 0) { // Kuzey
+                            newY = simY - 1;
+                        } else if (simDirection === 1) { // Doğu
+                            newX = simX + 1;
+                        } else if (simDirection === 2) { // Güney
+                            newY = simY + 1;
+                        } else if (simDirection === 3) { // Batı
+                            newX = simX - 1;
+                        }
+
+                        if (isWalkable(newX, newY)) {
+                            simX = newX;
+                            simY = newY;
+                            previewPath.push({x: simX, y: simY, direction: simDirection});
+                        } else {
+                            break;
+                        }
+                        break;
+                    case 'space':
+                        break;
+                }
+            }
+
+            const grid = document.getElementById('gameGrid');
+            const characterLayer = document.getElementById('characterLayer');
+            if (!grid || !characterLayer) return;
+
+            const gridRect = grid.getBoundingClientRect();
+
+            let previewLayer = document.getElementById('pathPreviewLayer');
+            if (!previewLayer) {
+                previewLayer = document.createElement('div');
+                previewLayer.id = 'pathPreviewLayer';
+                previewLayer.className = 'path-preview-layer';
+                grid.appendChild(previewLayer);
+            }
+
+            const existingLines = previewLayer.querySelectorAll('.path-preview-line');
+            existingLines.forEach(line => line.remove());
+
+            previewPath.forEach((point, index) => {
+                if (index === 0) return;
+
+                const cell = document.getElementById(`cell-${point.x}-${point.y}`);
+                if (!cell) return;
+
+                const prevPoint = previewPath[index - 1];
+                const prevCell = document.getElementById(`cell-${prevPoint.x}-${prevPoint.y}`);
+                if (!prevCell) return;
+
+                const line = document.createElement('div');
+                line.className = 'path-preview-line';
+                line.id = `preview-line-${prevPoint.x}-${prevPoint.y}-${point.x}-${point.y}`;
+
+                const prevCellRect = prevCell.getBoundingClientRect();
+                const cellRect = cell.getBoundingClientRect();
+                const gridRect = grid.getBoundingClientRect();
+
+                const x1 = prevCellRect.left - gridRect.left + prevCellRect.width / 2;
+                const y1 = prevCellRect.top - gridRect.top + prevCellRect.height / 2;
+                const x2 = cellRect.left - gridRect.left + cellRect.width / 2;
+                const y2 = cellRect.top - gridRect.top + cellRect.height / 2;
+
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                line.style.position = 'absolute';
+                line.style.left = x1 + 'px';
+                line.style.top = y1 + 'px';
+                line.style.width = length + 'px';
+                line.style.height = '3px';
+                line.style.opacity = '0.6';
+                line.style.transformOrigin = '0 50%';
+                line.style.transform = `rotate(${angle}deg)`;
+                line.style.pointerEvents = 'none';
+                line.style.zIndex = '50';
+
+                line.style.borderTop = '3px dashed #1E3A8A';
+                line.style.borderBottom = 'none';
+                line.style.backgroundColor = 'transparent';
+
+                previewLayer.appendChild(line);
+            });
+
+            const lastPoint = previewPath[previewPath.length - 1];
+            const lastCell = document.getElementById(`cell-${lastPoint.x}-${lastPoint.y}`);
+            if (lastCell) {
+                const lastCellRect = lastCell.getBoundingClientRect();
+
+                let previewChar = document.getElementById('preview-character-single');
+                const isNewChar = !previewChar;
+
+                if (!previewChar) {
+                    const firstPoint = previewPath[0];
+                    const firstCell = document.getElementById(`cell-${firstPoint.x}-${firstPoint.y}`);
+                    if (!firstCell) return;
+
+                    const firstCellRect = firstCell.getBoundingClientRect();
+                    const firstRelativeLeft = firstCellRect.left - gridRect.left;
+                    const firstRelativeTop = firstCellRect.top - gridRect.top;
+
+                    previewChar = document.createElement('div');
+                    previewChar.id = 'preview-character-single';
+                    previewChar.className = 'path-preview-character';
+                    previewChar.style.position = 'absolute';
+                    previewChar.style.left = firstRelativeLeft + 'px';
+                    previewChar.style.top = firstRelativeTop + 'px';
+                    previewChar.style.width = firstCellRect.width + 'px';
+                    previewChar.style.height = firstCellRect.height + 'px';
+                    previewChar.style.opacity = '0.3';
+                    previewChar.style.pointerEvents = 'none';
+                    previewChar.style.zIndex = '51';
+                    previewChar.style.transition = 'left 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.5s cubic-bezier(0.4, 0, 0.2, 1), width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+
+                    const charImg = document.createElement('img');
+                    charImg.src = 'img/bk_karakter.png';
+                    charImg.alt = 'Preview';
+                    charImg.style.width = '100%';
+                    charImg.style.height = '100%';
+                    charImg.style.objectFit = 'contain';
+                    charImg.style.setProperty('--rot', `${firstPoint.direction * 90}deg`);
+                    charImg.style.transform = `rotate(${firstPoint.direction * 90}deg)`;
+                    previewChar.appendChild(charImg);
+
+                    previewLayer.appendChild(previewChar);
+                }
+
+                const lastRelativeLeft = lastCellRect.left - gridRect.left;
+                const lastRelativeTop = lastCellRect.top - gridRect.top;
+
+                if (!isNewChar) {
+                    void previewChar.offsetLeft;
+                }
+
+                previewChar.style.transition = 'left 0.5s cubic-bezier(0.4, 0, 0.2, 1), top 0.5s cubic-bezier(0.4, 0, 0.2, 1), width 0.5s cubic-bezier(0.4, 0, 0.2, 1), height 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+
+                const charImg = previewChar.querySelector('img');
+                if (charImg) {
+                    let currentDirection = previewPath[0].direction;
+                    if (!isNewChar) {
+                        const styleTransform = charImg.style.transform;
+                        const computedTransform = window.getComputedStyle(charImg).transform;
+                        const transformStr = styleTransform || computedTransform;
+
+                        if (transformStr && transformStr !== 'none') {
+                            const rotateMatch = transformStr.match(/rotate\((-?\d+)deg\)/);
+                            if (rotateMatch) {
+                                const rot = parseInt(rotateMatch[1]);
+                                currentDirection = (rot / 90) % 4;
+                                if (currentDirection < 0) currentDirection += 4;
+                            }
+                        }
+                    }
+
+                    const targetDirection = lastPoint.direction;
+                    const targetRot = targetDirection * 90;
+
+                    if (currentDirection !== targetDirection && !isNewChar) {
+                        const directionDiff = (targetDirection - currentDirection + 4) % 4;
+
+                        charImg.style.setProperty('--rot', `${targetRot}deg`);
+
+                        if (directionDiff === 1) {
+                            charImg.style.setProperty('--tilt', '4deg');
+                        } else if (directionDiff === 3) {
+                            charImg.style.setProperty('--tilt', '-4deg');
+                        } else if (directionDiff === 2) {
+                            charImg.style.setProperty('--tilt', '0deg');
+                        }
+
+                        void charImg.offsetWidth;
+
+                        previewChar.classList.add('turning');
+                        charImg.addEventListener('animationend', () => {
+                            previewChar.classList.remove('turning');
+                            charImg.style.transform = `rotate(${targetRot}deg)`;
+                        }, { once: true });
+
+                        charImg.style.transform = `rotate(${targetRot}deg)`;
+                    } else {
+                        charImg.style.setProperty('--rot', `${targetRot}deg`);
+                        charImg.style.transform = `rotate(${targetRot}deg)`;
+                    }
+                }
+
+                const currentLeft = parseFloat(previewChar.style.left) || 0;
+                const currentTop = parseFloat(previewChar.style.top) || 0;
+                const needsMove = Math.abs(currentLeft - lastRelativeLeft) > 1 || Math.abs(currentTop - lastRelativeTop) > 1;
+
+                if (needsMove || isNewChar) {
+                    if (!isNewChar) {
+                        previewChar.classList.add('moving');
+                        const charImg = previewChar.querySelector('img');
+                        if (charImg) {
+                            charImg.addEventListener('animationend', () => {
+                                previewChar.classList.remove('moving');
+                            }, { once: true });
+                        }
+                    }
+
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            previewChar.style.left = lastRelativeLeft + 'px';
+                            previewChar.style.top = lastRelativeTop + 'px';
+                            previewChar.style.width = lastCellRect.width + 'px';
+                            previewChar.style.height = lastCellRect.height + 'px';
+                        });
+                    });
+                }
+            }
+        }
+
+        function clearCommands() {
+            if (isExecutingCommands) return;
+            commandQueue = [];
+            executedCommands = [];
+            updateCommandList();
+            saveGameState();
+        }
+
+        async function startCommands() {
+            if (isExecutingCommands) return;
+            if (commandQueue.length === 0) {
+                showMessage('Lütfen önce komut ekleyin!', 'warning');
+                return;
+            }
+
+            isExecutingCommands = true;
+            const startButton = document.getElementById('startButton');
+            if (startButton) {
+                startButton.disabled = true;
+                startButton.textContent = 'Çalışıyor...';
+            }
+
+            const previewChar = document.getElementById('preview-character-single');
+            if (previewChar) {
+                previewChar.remove();
+            }
+
+            updateCommandList();
+
+            const commandsToExecute = [...commandQueue]; // Mevcut komutların kopyası
+            const executedInThisRun = []; // Bu çalıştırmada çalıştırılan komutlar
+
+            for (let i = 0; i < commandsToExecute.length; i++) {
+                const cmd = commandsToExecute[i];
+
+                const cmdItems = document.querySelectorAll('.command-item');
+                const totalExecuted = executedCommands.length;
+                const queueIndex = i; // commandQueue içindeki index
+                const visualIndex = totalExecuted + queueIndex; // Görsel listedeki toplam index
+
+                const commandListEl = document.getElementById('commandList');
+                
+                cmdItems.forEach((item) => {
+                    const itemIndex = parseInt(item.dataset.index);
+                    if (itemIndex === visualIndex) {
+                        item.classList.add('executing');
+                        setTimeout(() => {
+                            if (commandListEl) {
+                                const listRect = commandListEl.getBoundingClientRect();
+                                const itemRect = item.getBoundingClientRect();
+                                
+                                const scrollLeft = commandListEl.scrollLeft;
+                                const itemLeft = itemRect.left - listRect.left + scrollLeft;
+                                const itemWidth = itemRect.width;
+                                const listWidth = listRect.width;
+                                
+                                const targetScroll = itemLeft - (listWidth / 2) + (itemWidth / 2);
+                                
+                                commandListEl.scrollTo({
+                                    left: targetScroll,
+                                    behavior: 'smooth'
+                                });
+                            }
+                        }, 10);
+                    } else {
+                        item.classList.remove('executing');
+                    }
+                });
+
+                await executeCommand(cmd);
+
+                executedInThisRun.push(cmd);
+
+                if (i > 0) {
+                    await new Promise(resolve => setTimeout(resolve, commandDelay));
+                }
+            }
+
+            for (let i = 0; i < executedInThisRun.length; i++) {
+                executedCommands.push(executedInThisRun[i]);
+            }
+            commandQueue = [];
+
+            updateCommandList();
+
+            saveGameState();
+
+            const cmdItems = document.querySelectorAll('.command-item');
+            cmdItems.forEach(item => item.classList.remove('executing'));
+
+            isExecutingCommands = false;
+            if (startButton) {
+                startButton.disabled = false;
+                startButton.textContent = 'Başlat';
+            }
+
+            if (gameRunning && !(character.x === 0 && character.y === 4)) {
+                if (commandQueue.length > 0) {
+                    updatePathPreview();
+                } else {
+                    const previewLayer = document.getElementById('pathPreviewLayer');
+                    if (previewLayer) {
+                        previewLayer.innerHTML = '';
+                    }
+                }
+            } else {
+                const previewLayer = document.getElementById('pathPreviewLayer');
+                if (previewLayer) {
+                    previewLayer.innerHTML = '';
+                }
+            }
+        }
+
+        function executeCommand(action) {
+            return new Promise((resolve) => {
+            switch(action) {
+                case 'left':
+                    character.direction = (character.direction + 3) % 4;
+                    moveCharacter(true); // Dönüş animasyonu
+                        setTimeout(resolve, commandDelay);
+                    break;
+                case 'right':
+                    character.direction = (character.direction + 1) % 4;
+                    moveCharacter(true); // Dönüş animasyonu
+                        setTimeout(resolve, commandDelay);
+                    break;
+                case 'up':
+                    let newX = character.x;
+                    let newY = character.y;
+
+                    if (character.direction === 0) { // Kuzeye bakıyor - kuzeye git (yukarı)
+                        newY = character.y - 1;
+                    } else if (character.direction === 1) { // Doğuya bakıyor - doğuya git (sağa)
+                        newX = character.x + 1;
+                    } else if (character.direction === 2) { // Güneye bakıyor - güneye git (aşağı)
+                        newY = character.y + 1;
+                    } else if (character.direction === 3) { // Batıya bakıyor - batıya git (sola)
+                        newX = character.x - 1;
+                    }
+
+                    if (isWalkable(newX, newY)) {
+                        const prevX = character.x;
+                        const prevY = character.y;
+
+                        character.x = newX;
+                        character.y = newY;
+                        moveCharacter();
+
+                        const lineId1 = `preview-line-${prevX}-${prevY}-${newX}-${newY}`;
+                        const lineId2 = `preview-line-${newX}-${newY}-${prevX}-${prevY}`;
+
+                        const line1 = document.getElementById(lineId1);
+                        if (line1) line1.remove();
+
+                        const line2 = document.getElementById(lineId2);
+                        if (line2) line2.remove();
+
+                        if (character.x === 0 && character.y === 4) {
+                            endGame();
+                        }
+                            setTimeout(resolve, commandDelay);
+                    } else {
+                        triggerWrongMoveFeedback();
+                            setTimeout(resolve, commandDelay);
+                    }
+                    break;
+                case 'space':
+                    collectItem();
+                        setTimeout(resolve, commandDelay);
+                    break;
+                    default:
+                        setTimeout(resolve, commandDelay);
+                }
+            });
+        }
+
+        function handleMobileControl(action) {
+            addCommand(action);
+        }
+
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.closest('.character')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            if (isExecutingCommands) return; // Komutlar çalışırken klavye komutları devre dışı
+
+            switch(e.key) {
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    addCommand('left');
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    addCommand('right');
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    addCommand('up');
+                    break;
+                case 'ArrowDown':
+                    e.preventDefault();
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    addCommand('space');
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    startCommands();
+                    break;
+            }
+        });
+
+        function saveGameState() {
+            try {
+                const gameState = {
+                    character: {
+                        x: character.x,
+                        y: character.y,
+                        direction: character.direction,
+                        score: character.score
+                    },
+                    collectedItems: collectedItems,
+                    gameRunning: gameRunning,
+                    gameBoard: gameBoard,
+                    commandQueue: commandQueue,
+                    executedCommands: executedCommands,
+                    isExecutingCommands: isExecutingCommands
+                };
+                localStorage.setItem('bilgisayarsiz_kodlama_state', JSON.stringify(gameState));
+            } catch (e) {
+            }
+        }
+
+        function loadGameState() {
+            try {
+                const savedState = localStorage.getItem('bilgisayarsiz_kodlama_state');
+                if (!savedState) return false;
+
+                const gameState = JSON.parse(savedState);
+
+                character.x = gameState.character.x || 0;
+                character.y = gameState.character.y || 0;
+                character.direction = gameState.character.direction || 0;
+                character.score = gameState.character.score || 0;
+
+                collectedItems = gameState.collectedItems || [];
+
+                gameRunning = gameState.gameRunning !== false;
+
+                commandQueue = gameState.commandQueue || [];
+                executedCommands = gameState.executedCommands || [];
+                isExecutingCommands = false;
+
+                const startButton = document.getElementById('startButton');
+                if (startButton) {
+                    startButton.disabled = false;
+                    startButton.textContent = 'Başlat';
+                }
+
+                if (gameState.gameBoard && gameState.gameBoard.length > 0) {
+                    gameBoard = gameState.gameBoard;
+
+                    createGameBoard();
+
+                    positionCharacterToCell(character.x, character.y, false);
+
+                    updateCommandList();
+
+                    updateCollectedItemsList();
+                    guncelleYildizlar();
+                    return true;
+                }
+
+                return false;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        const originalMoveCharacter = moveCharacter;
+        moveCharacter = function(rotationOnly) {
+            originalMoveCharacter(rotationOnly);
+            saveGameState();
+        };
+
+        const originalCollectItem = collectItem;
+        collectItem = function() {
+            originalCollectItem();
+            saveGameState();
+        };
+
+        if (!loadGameState()) {
+            createGameBoard();
+            guncelleYildizlar(); // Başlangıçta yıldızları güncelle
+        }
+
+        window.addEventListener('beforeunload', saveGameState);
+
+        setInterval(saveGameState, 5000); // Her 5 saniyede bir
+    </script>
+    <script src="book-effect/jquery.js" defer></script>
+    <script src="book-effect/turn.js" defer></script>
+</body>
+</html>

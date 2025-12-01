@@ -1,0 +1,34 @@
+1) OYUNLAR
+- Bilgisayarsız Kodlama (bilgisayarsiz_kodlama.html): Algoritma ve programlama mantığını öğreten interaktif oyun.
+- Çengel Bulmaca (cengel_bulmaca.html): Afet ve acil durum terimlerini öğreten bulmaca.
+- Tahliye Planı (tahliye_plani.html): Acil durum tahliye planı oluşturma simülasyonu.
+- Resfebe (resfebe.html): Görsel ipuçlarıyla kelime bulma oyunu.
+- AFAD Dergi (afad_dergi.html): PDF tabanlı interaktif dergi görüntüleyici.
+
+2) TEKNOLOJİLER
+- HTML5, CSS3, JavaScript
+- Bootstrap 5, Font Awesome 6
+- PDF.js, jQuery
+
+3) PDF DOSYALARI
+- afad_dergi.pdf: Derginin kalite kaybı olmadan sıkıştırılmış kopyasıdır (daha hızlı yükleme için).
+- afad_dergi_orijinal.pdf: Derginin orijinal tam sürümüdür.
+
+4) SES DOSYALARI
+Müzik ve efektleri güncellemek için aynı dosya adlarını kullanarak yeni dosyaları mevcutlarının yerine koyun:
+- Bilgisayarsız Kodlama: bk_music.mp3, bk_wrong.mp3, bk_correct.mp3
+- Çengel Bulmaca: cb_music.mp3
+- Resfebe: rf_music.mp3
+- Tahliye Planı: tp_music.mp3, tp_correct.mp3
+- AFAD Dergi: page_flip.mp3, loading.mp3
+
+5) LİSANSLAR
+- Bootstrap 5: MIT License
+- Font Awesome 6: MIT License (Kod), CC BY 4.0 (İkonlar), SIL OFL 1.1 (Fontlar)
+- PDF.js: Apache License 2.0
+- jQuery: MIT License
+- Turn.js: Özel geliştirme (sayfa çevirme animasyonu)
+
+6) GELİŞTİRİCİ
+Berkay Tonga
+

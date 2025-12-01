@@ -1,0 +1,1009 @@
+/* Created by Berkay Tonga 11.11.2025 */
+/*! BTNG2:QlROUzEjAEJlcmtheSBUb25nYSB8IDIwMjUtMTEtMTBUMTQ6MTk6NDRaMNttfinmulc= | Berkay Tonga | 2025-11-10T14:19:44Z */
+:root {
+  /* Adjustable overlay cursor size and hotspot */
+  --cursor-w: 32px;
+  --cursor-h: 36px;
+  --hotspot-x: 14px; /* distance from left edge to click point */
+  --hotspot-y: 2px; /* distance from top edge to click point */
+}
+
+body {
+  background-color: #FAF9F6;
+  font-family: Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+#grid {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  grid-template-rows: repeat(15, 1fr);
+  gap: 0px;
+  position: relative;
+  justify-content: stretch;
+  align-items: stretch;
+  width: min(100%, 90vmin);
+  height: auto;
+  aspect-ratio: 15 / 13;
+  padding: 12px;
+  margin: 0 auto;
+  cursor: none !important;
+  overflow: visible;
+}
+
+.cell {
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  aspect-ratio: 1 / 1;
+  background: transparent;
+  border: none;
+  text-align: center;
+  font-weight: bold;
+  cursor: none !important;
+  position: relative;
+  transition: background-color 0.1s ease;
+  box-sizing: border-box;
+  margin: -1px;
+}
+
+.cell.active {
+  background-image: url('../img/cb_blok.png');
+  background-size: 100% 100%;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.cell.active:hover {
+  background-color: #f5bb57;
+  cursor: none !important;
+}
+
+.cell.found {
+  background-color: #28a745;
+  border-color: #28a745;
+  color: white;
+}
+
+.cell.found:hover {
+  background-color: #28a745 !important;
+  border-color: #28a745 !important;
+}
+
+.cell.sari-kutu {
+  background-color: #ffc107 !important;
+  border-color: #ffc107 !important;
+}
+
+/* cb_sayi işaretli kutular için varsayılan sarı arkaplan (ilk yüklemede) */
+.cell.sayi-bg {
+  /* Arka plan görseli kalsın, sadece sarı zemin uygula */
+  background-color: #ffc107 !important;
+}
+
+.cell.sayi-bg:hover {
+  background-color: #ffc107 !important;
+}
+
+/* Tüm sarı kutular dolunca yeşile dönmesi için */
+.cell.sari-kutu.completed {
+  background-color: #28a745 !important;
+  border-color: #28a745 !important;
+  color: #fff !important;
+}
+
+.cell input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  text-transform: uppercase;
+  text-align: center;
+  font-weight: bold;
+  background: transparent;
+  font-size: 18px;
+  cursor: none !important;
+  position: relative;
+  z-index: 6;
+}
+
+.left-panel {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  position: sticky;
+  top: 16px;
+}
+
+.game-area {
+  background: transparent;
+  padding: 0;
+  display: block;
+  width: fit-content;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.game-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  overflow-x: visible;
+  overflow-y: auto;
+}
+
+.grid-container {
+  display: block;
+  width: fit-content;
+  overflow: visible;
+}
+
+.game-info {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.title-image {
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
+
+.collected-items {
+  padding-top :10px;
+  margin-top: 10px;
+  background: #f8f9fa !important;
+  border-radius: 8px !important;
+ 
+  border: 1px solid #e9ecef !important;
+  
+}
+
+.collected-items h4 {
+  font-size: 0.9em;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.collected-items-list {
+  min-height: 70px;
+  max-height: 150px;
+  overflow-x: auto;
+  overflow-y: auto;
+  background: white;
+  border-radius: 6px;
+  padding: 8px;
+  border: 1px solid #dee2e6;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.no-items {
+  color: #6c757d;
+  font-style: italic;
+  text-align: center;
+  width: 100%;
+}
+
+.found-word {
+  font-size: 14px;
+  font-weight: bold;
+  padding: 6px 12px;
+  margin: 4px;
+  border-radius: 6px;
+  display: inline-block;
+  color: #4caf50;
+  background-color: #e8f5e8;
+  border: 1px solid #4caf50;
+}
+
+.leftFore {
+  position: relative;
+  z-index: 1;
+}
+
+.leftFore .btn-danger {
+  background: #1E3A8A;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 12px;
+  cursor: none !important;
+  font-size: 0.85em;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.leftFore .btn-danger:hover {
+  background: #16306E;
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.leftFore .btn-danger:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.leftFore .btn-warning {
+  background: #FF8A00;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 12px;
+  cursor: none !important;
+  font-size: 0.85em;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.leftFore .btn-warning:hover {
+  background: #FF6A00;
+  transform: scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.leftFore .btn-warning:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.clues-panel {
+  padding: 20px;
+  font-weight: 600;
+  width: 100%;
+  height: fit-content;
+}
+
+.corner-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 12px;
+  color: #333;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* 500px'den küçük ekranlar için corner-label */
+@media (max-width: 500px) {
+  .corner-label {
+    font-size: 14px;
+  }
+}
+
+.word-container {
+  position: absolute;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.word-container.horizontal {
+  top: 2px;
+  left: 2px;
+}
+
+.word-container.horizontal.right {
+  top: 2px;
+  right: 2px;
+  left: auto;
+}
+
+.word-container.vertical {
+  top: 2px;
+  left: 2px;
+}
+
+.word-container.vertical.right {
+  top: 2px;
+  right: 2px;
+  left: auto;
+}
+
+.word-number {
+  width: clamp(12px, 1.4vw, 20px);
+  height: clamp(12px, 1.4vw, 20px);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+/* Sayı görselleri için küçük köşe etiketi */
+.sayi-number {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: clamp(12px, 2.2vw, 18px);
+  height: clamp(12px, 2.2vw, 18px);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.word-arrow {
+  font-size: clamp(10px, 3vw, 14px);
+  color: #333;
+  line-height: 1;
+}
+
+/* Force custom overlay cursor: hide native cursor and show our image */
+html, body, *,
+*:hover,
+*:active,
+*:focus,
+*:visited,
+button:hover,
+a:hover,
+.btn:hover,
+input:hover,
+select:hover,
+textarea:hover {
+  cursor: none !important;
+}
+
+#custom-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--cursor-w);
+  height: var(--cursor-h);
+  background-image: url('../img/pointer.png');
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  pointer-events: none;
+  z-index: 100000;
+  will-change: transform;
+  display: block;
+  /* Transform is applied by JavaScript using CSS variables */
+  transition: filter 0.08s ease-out;
+  filter: drop-shadow(0 0 2px rgba(30, 58, 138, 0.2));
+}
+
+/* On touch devices, keep native behavior */
+@media (hover: none) {
+  html, body, * { cursor: auto !important; }
+  #custom-cursor { display: none !important; }
+}
+
+/* Tablet ve orta boy ekranlar için ara değerler (500px - 1000px) */
+@media (min-width: 500px) and (max-width: 1000px) {
+  body {
+    font-size: 15px;
+  }
+
+  .title-image {
+    width: 60vw;
+    max-width: 60vw;
+    height: auto;
+    margin: 10px auto;
+    display: block;
+  }
+  .collected-items h4 {
+    font-size: 1em;
+  }
+  .found-word {
+    font-size: 13px;
+    padding: 5px 10px;
+  }
+  .cell input {
+    font-size: 15px;
+  }
+  .word-arrow {
+    font-size: clamp(10px, 2.5vw, 15px) !important;
+  }
+  .word-number {
+    width: clamp(12px, 1.5vw, 18px) !important;
+    height: clamp(12px, 1.5vw, 18px) !important;
+  }
+  .sayi-number {
+    width: clamp(12px, 2vw, 18px) !important;
+    height: clamp(12px, 2vw, 18px) !important;
+  }
+  .word-popup {
+    font-size: 15px !important;
+    padding: 10px 16px !important;
+    width: 70vw !important;
+    max-width: 85vw !important;
+  }
+  .leftFore .btn-danger,
+  .leftFore .btn-warning {
+    font-size: 15px !important;
+    padding: 8px 14px !important;
+  }
+  .clues-panel {
+    font-size: 14px !important;
+  }
+  .clues-panel div,
+  .clues-panel div div,
+  #clues-content div,
+  #clues-content div div {
+    font-size: 14px !important;
+  }
+  .message {
+    font-size: 14px !important;
+  }
+  .badge {
+    font-size: 14px !important;
+  }
+}
+/* Cursor hover feedback: professional brightness effect without color change */
+@media (hover: hover) {
+  body:has(
+    a:hover,
+    button:hover,
+    .btn:hover,
+    input:hover,
+    select:hover,
+    textarea:hover
+  ) #custom-cursor {
+    filter: drop-shadow(0 0 4px rgba(11, 22, 51, 0.7)) 
+            drop-shadow(0 0 2px rgba(17, 36, 67, 0.6))
+            drop-shadow(0 0 1px rgba(29, 50, 74, 0.5));
+  }
+}
+
+/* Completion popup overlay */
+.completion-popup {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate3d(-50%, -50%, 0) scale(0.3);
+  opacity: 0;
+  z-index: 10007;
+  width: auto;
+  min-width: 250px;
+  max-width: 95vw;
+  max-height: 90vh;
+  pointer-events: none;
+  will-change: transform, opacity;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.completion-popup-active {
+  pointer-events: auto;
+  animation: popupAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.completion-popup #completion-popup-content {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  background: #FFFFFF;
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4), 0 15px 40px rgba(255, 138, 0, 0.3);
+  border: 3px solid rgba(255, 138, 0, 0.5);
+  box-sizing: border-box;
+  overflow: visible !important;
+  margin: 0;
+}
+
+/* Popup içindeki butonlar için aynı stiller */
+.completion-popup .btn-danger {
+  background: #1E3A8A !important;
+  color: white !important;
+  border: none !important;
+  padding: 8px 15px !important;
+  border-radius: 12px !important;
+  cursor: none !important;
+  font-size: 0.85em !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.completion-popup .btn-danger:hover {
+  background: #16306E !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+.completion-popup .btn-danger:active {
+  transform: scale(0.98) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.completion-popup .btn-warning {
+  background: #FF8A00 !important;
+  color: white !important;
+  border: none !important;
+  padding: 8px 15px !important;
+  border-radius: 12px !important;
+  cursor: none !important;
+  font-size: 0.85em !important;
+  font-weight: 600 !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.completion-popup .btn-warning:hover {
+  background: #FF6A00 !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+.completion-popup .btn-warning:active {
+  transform: scale(0.98) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Popup içindeki diğer elementlerin stilleri */
+.completion-popup .badge.bg-warning.text-dark {
+  background-color: #FFE0B2 !important;
+  color: #5D4037 !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  font-weight: 700 !important;
+}
+
+.completion-popup .collected-items {
+  margin-top: 10px !important;
+  background: #f8f9fa !important;
+  border-radius: 8px !important;
+  padding: 10px !important;
+  border: 1px solid #e9ecef !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+}
+
+.completion-popup .collected-items-list {
+  min-height: auto !important;
+  max-height: none !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+  background: white !important;
+  border-radius: 6px !important;
+  padding: 15px 5px !important;
+  border: 1px solid #dee2e6 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  flex-wrap: nowrap !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  flex: 0 0 auto !important;
+}
+
+.completion-popup #collectedItemsList {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  flex: 0 0 auto !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+}
+
+.completion-popup .key-word-cell-popup {
+  flex-shrink: 0 !important;
+}
+
+/* Anahtar kelime harfleri için sırayla belirme animasyonu */
+@keyframes letterAppearSequence {
+  0% {
+    transform: scale(0) translateY(-20px) rotate(-10deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2) translateY(-5px) rotate(5deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1) translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+.completion-popup .game-info {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  margin: 0 0 12px 0 !important;
+}
+
+.completion-popup .button-container {
+  display: flex !important;
+  gap: 8px !important;
+}
+
+.completion-popup .button-container .btn {
+  flex: 1 !important;
+  font-size: 0.9em !important;
+}
+
+@keyframes popupAppear {
+  0% {
+    transform: translate3d(-50%, -50%, 0) scale(0.3) rotate(-10deg);
+    opacity: 0;
+  }
+  60% {
+    transform: translate3d(-50%, -50%, 0) scale(1.1) rotate(2deg);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(-50%, -50%, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Profesyonel bitiş animasyonu - Devlet sitesi için uygun arka plan */
+body.completion-bg-active {
+  background: radial-gradient(circle at center, 
+    rgba(30, 136, 229, 0.15),
+    rgba(21, 101, 192, 0.12),
+    rgba(255, 167, 38, 0.1),
+    rgba(46, 125, 50, 0.08),
+    transparent);
+  background-size: 200% 200%;
+  animation: glowPulse 6s ease-in-out infinite;
+}
+
+body.completion-bg-active .game-area,
+body.completion-bg-active #grid,
+body.completion-bg-active .clues-panel {
+  filter: blur(2px);
+  transition: filter 0.5s ease;
+  pointer-events: none;
+}
+
+body.completion-bg-active .left-panel,
+body.completion-bg-active .leftFore,
+body.completion-bg-active .title-image {
+  filter: blur(2px);
+  transition: filter 0.5s ease;
+  pointer-events: none;
+}
+
+/* Popup ve içindeki her şey blur olmamalı */
+body.completion-bg-active .completion-popup,
+body.completion-bg-active .completion-popup * {
+  filter: blur(0px) !important;
+  pointer-events: auto !important;
+}
+
+@keyframes glowPulse {
+  0%, 100% { 
+    background-position: 0% 50%;
+    background: radial-gradient(circle at center, 
+      rgba(30, 136, 229, 0.15),
+      rgba(21, 101, 192, 0.12),
+      rgba(255, 167, 38, 0.1),
+      rgba(46, 125, 50, 0.08),
+      transparent);
+  }
+  50% { 
+    background-position: 100% 50%;
+    background: radial-gradient(circle at center, 
+      rgba(30, 136, 229, 0.18),
+      rgba(21, 101, 192, 0.15),
+      rgba(255, 167, 38, 0.12),
+      rgba(46, 125, 50, 0.1),
+      transparent);
+  }
+}
+
+/* Konfeti patlaması - Merkezden dışa (optimize) */
+.confetti {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  border-radius: 3px;
+  animation: confettiBurst ease-out forwards;
+  animation-delay: var(--delay, 0s);
+  animation-duration: var(--duration, 3s);
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+@keyframes confettiBurst {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--end-x, 0px), var(--end-y, 0px), 0) rotate(720deg) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Yıldız patlaması efekti - Profesyonel altın rengi (optimize) */
+.star-burst {
+  position: fixed;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(circle, #FFA726 0%, #FB8C00 50%, transparent 100%);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  animation: starBurst 1.2s ease-out forwards;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+@keyframes starBurst {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate3d(var(--end-x, 0px), var(--end-y, 0px), 0) scale(1.5) rotate(180deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(var(--end-x, 0px), var(--end-y, 0px), 0) scale(0) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+/* Konfeti yağmuru - Yukarıdan aşağı (optimize) */
+.confetti-rain {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9997;
+  border-radius: 2px;
+  animation: confettiRain linear forwards;
+  animation-delay: var(--delay, 0s);
+  animation-duration: var(--duration, 3.5s);
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+@keyframes confettiRain {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, calc(100vh + 50px), 0) rotate(360deg) scale(1);
+    opacity: 0;
+  }
+}
+
+/* Kelime bulununca popup animasyonu */
+.word-popup {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  will-change: transform, opacity, filter;
+  font-size: 20px;
+  font-weight: bold;
+  color: #1E3A8A;
+  text-align: center;
+  padding: 16px 32px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  border: 3px solid rgba(76, 175, 80, 0.5);
+  filter: drop-shadow(0 0 20px rgba(76, 175, 80, 0.9)) 
+          drop-shadow(0 0 15px rgba(102, 187, 106, 0.8))
+          drop-shadow(0 0 10px rgba(129, 199, 132, 0.7))
+          brightness(1.2);
+  box-sizing: border-box;
+  max-width: 90vw;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Küçük mobil ekranlar (500px'den küçük) */
+@media (max-width: 500px) {
+  body {
+    font-size: 12px !important;
+  }
+  
+  .word-popup {
+    font-size: 12px !important;
+    padding: 8px 12px !important;
+    width: 65vw !important;
+    max-width: 80vw !important;
+    border-radius: 8px !important;
+    border-width: 2px !important;
+  }
+  
+  .leftFore .btn-danger,
+  .leftFore .btn-warning {
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+    min-height: 32px !important;
+  }
+  
+  .collected-items h4 {
+    font-size: 13px !important;
+  }
+  
+  .found-word {
+    font-size: 10px !important;
+    padding: 3px 6px !important;
+    margin: 2px !important;
+  }
+  
+  .clues-panel {
+    font-size: 11px !important;
+    padding: 10px !important;
+  }
+  
+  .clues-panel div,
+  .clues-panel div div {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin-bottom: 5px !important;
+  }
+  
+  #clues-content div {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+  }
+  
+  #clues-content div div {
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin-bottom: 5px !important;
+  }
+  
+  .message {
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+  }
+  
+  .cell input {
+    font-size: 12px !important;
+  }
+  
+  .title-image {
+    max-width: 60vw !important;
+  }
+  
+  .badge {
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+  }
+  
+  .word-number {
+    width: clamp(8px, 1vw, 14px) !important;
+    height: clamp(8px, 1vw, 14px) !important;
+  }
+  
+  .sayi-number {
+    width: clamp(8px, 1.5vw, 13px) !important;
+    height: clamp(8px, 1.5vw, 13px) !important;
+  }
+  
+  .word-arrow {
+    font-size: clamp(8px, 2vw, 11px) !important;
+  }
+  
+  /* HTML'deki inline style'ları override et */
+  [style*="font-size: 16px"],
+  [style*="font-size:16px"] {
+    font-size: 11px !important;
+  }
+  
+  /* İpuçları için özel override */
+  #clues-content [style*="font-size"],
+  #clues-content [style*="fontSize"] {
+    font-size: 11px !important;
+  }
+  
+  #clues-content div[style*="font-size: 16px"],
+  #clues-content div[style*="font-size:16px"] {
+    font-size: 11px !important;
+  }
+  
+  #clues-content div div[style*="font-size: 16px"],
+  #clues-content div div[style*="font-size:16px"] {
+    font-size: 11px !important;
+  }
+}
+
+/* Anahtar harf highlight efekti */
+.key-letter-highlight {
+  background-color: #4caf50 !important;
+  color: #FFFFFF !important;
+  font-weight: bold !important;
+  position: relative !important;
+  animation: keyLetterPulse 1.5s ease-in-out;
+  /* Arkaplan resmiyle birlikte büyüsün */
+  background-size: 120% 120% !important;
+  background-position: center !important;
+  /* Profesyonel gölge efektleri - dar ve hafif */
+  filter: drop-shadow(0 0 4px rgba(76, 175, 80, 0.5)) 
+          drop-shadow(0 0 2px rgba(102, 187, 106, 0.4));
+}
+
+@keyframes keyLetterPulse {
+  0%, 100% {
+    transform: scale(1.3);
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.6), 
+                0 0 3px rgba(102, 187, 106, 0.5),
+                inset 0 0 6px rgba(76, 175, 80, 0.3);
+  }
+  50% {
+    transform: scale(1.4);
+    box-shadow: 0 0 6px rgba(76, 175, 80, 0.7), 
+                0 0 4px rgba(102, 187, 106, 0.6),
+                inset 0 0 8px rgba(76, 175, 80, 0.4);
+  }
+}
+
+/* Yıldız partikül efekti - çok daha büyük ve rengarenk */
+.key-star {
+  position: fixed;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+  z-index: 999;
+  background: radial-gradient(circle, currentColor 0%, currentColor 50%, transparent 100%);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  animation: starBurstOut 1.5s ease-out forwards;
+  transform-origin: center;
+  filter: drop-shadow(0 0 6px currentColor) 
+          drop-shadow(0 0 4px currentColor)
+          drop-shadow(0 0 2px currentColor);
+}
+
+@keyframes starBurstOut {
+  0% {
+    transform: translate(0, 0) scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--star-x, 0px), var(--star-y, 0px)) scale(1) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.game-info .score {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Individual star background, not the whole block */
+.star-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+

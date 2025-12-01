@@ -1,0 +1,1983 @@
+<!DOCTYPE html>
+
+<html lang="tr">
+<head>
+    <meta name="author" content="Berkay Tonga">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tahliye Planı</title>
+  <link href="libs/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="libs/fontawesome/all.min.css">
+  <link rel="stylesheet" href="css/tahliye_plani.css">
+    <style>
+        /* Responsive move instructions for tahliye plan page */
+        .move-instruction { text-align: center; margin: 12px 0; color: #222; background: rgba(255,255,255,0.95); padding: 8px 12px; border-radius: 8px; font-family: inherit; z-index: 20; }
+        .move-instruction .desktop, .move-instruction .mobile { display: none; }
+        @media (min-width: 1000px) {
+            .move-instruction .desktop { display: block; }
+        }
+        @media (max-width: 999px) {
+            .move-instruction { font-size: 12px; padding: 4px 8px; }
+            .move-instruction .mobile { display: block; font-size: 12px; line-height: 1.2; }
+        }
+    </style>
+</head>
+<body>
+  <div class="container-fluid game-container">
+    <div class="row align-items-center" style="margin: 0; width: 100%;">
+      <div class="col-lg-3 col-md-12 left-column">
+        <div class="left-panel">
+          <img src="img/tp_baslik.png" alt="Tahliye Planı" class="main-title-image">
+
+          <div class="game-info">
+            <div class="score badge bg-warning text-dark"><span id="stars"></span></div>
+          </div>
+
+           <div style="display: flex; gap: 8px;">
+             <button class="btn btn-danger btn-sm" onclick="oyunuSifirla()" style="flex: 1; font-size: 0.9em;">Baştan Başla</button>
+           </div>
+
+          <div id="message" class="message alert" style="display: none;"></div>
+
+           <div class="collected-items">
+             <h4>Toplanan Eşyalar:</h4>
+             <div id="collectedItemsList" class="collected-items-list">
+               <div class="no-items">Henüz eşya toplanmadı</div>
+             </div>
+           </div>
+                    <div id="moveInstruction" class="move-instruction" aria-live="polite">
+                        <div class="desktop">Karakteri hareket ettirmek için karakterin üzerine basılı tutup sürükleyiniz.</div>
+                        <div class="mobile">karakteri hareket ettirmek için haritanın herhangi bir yerine basılı tutup hareket ettiriniz</div>
+                    </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6 col-md-12 d-flex justify-content-center game-area-column">
+        <div class="game-area">
+          <div class="grid-container">
+             <div class="map-container">
+                            <div class="map-wrapper" style="position: relative; display: inline-block;">
+                                <img id="mapImage" src="img/tp_harita.png" alt="Tahliye Haritası" class="map-image">
+
+                <img id="mapMaskImage" src="img/tp_harita_mask.png" alt="Tahliye Haritası Mask" style="display:none;" />
+                 <div id="itemLayer" class="item-layer"></div>
+                <img id="character" src="img/tp_karakter.png" alt="Karakter"
+                     style="position: absolute; pointer-events: auto; z-index: 10; display: block; cursor: none !important;">
+
+                 <div id="joystick" class="joystick">
+                   <div class="joystick-base"></div>
+                   <div class="joystick-stick"></div>
+                 </div>
+               </div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-12 col-lg-3 right-column">
+        <div class="game-description">
+          Bir deprem oldu! Evdesin ve güvenli şekilde bahçedeki toplanma alanına ulaşmalısın. Doğru yolu bul, engellerden kaç!<br><br>
+          Başlangıçtan hedefe doğru giderken doğru güvenlik simgelerinin üzerinden geçerek tahliye planını tamamlamalıdır. Yanlış yola girerse "tehlike" ikonlarıyla karşılaşır ve çıkmazda kalır.
+        </div>
+        <div class="clues-panel">
+          <img src="img/tp_bilgi.png" alt="Bilgi" class="info-title-image">
+           <div id="clues-content">
+
+           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+   <script>
+     (function() {
+         document.addEventListener('DOMContentLoaded', function() {
+             try {
+                 if (!document.getElementById('custom-cursor')) {
+                     const el = document.createElement('div');
+                     el.id = 'custom-cursor';
+                     document.body.appendChild(el);
+                 }
+                 const cursorEl = document.getElementById('custom-cursor');
+                 if (!cursorEl) return;
+                 let visible = true;
+                 function getHotspot() {
+                     const root = getComputedStyle(document.documentElement);
+                     const x = parseFloat(root.getPropertyValue('--hotspot-x')) || 8;
+                     const y = parseFloat(root.getPropertyValue('--hotspot-y')) || 4;
+                     return { x, y };
+                 }
+                 function move(e) {
+                     if (!visible) { cursorEl.style.display = 'block'; visible = true; }
+                     const hotspot = getHotspot();
+                     cursorEl.style.transform = 'translate(' + (e.clientX - hotspot.x) + 'px,' + (e.clientY - hotspot.y) + 'px)';
+                 }
+                 cursorEl.style.display = 'block';
+                 document.addEventListener('mousemove', function initMove(e) {
+                     move(e);
+                     document.removeEventListener('mousemove', initMove);
+                 }, { once: true });
+                 document.addEventListener('mousemove', move);
+                 document.addEventListener('mouseleave', function(){ cursorEl.style.display = 'none'; visible = false; });
+                 document.addEventListener('mouseenter', function(){ cursorEl.style.display = 'block'; visible = true; });
+                 document.addEventListener('touchstart', function(){ if (cursorEl) cursorEl.style.display = 'none'; }, { passive: true });
+             } catch(_) {  }
+         });
+     })();
+
+    let backgroundMusic = null;
+    let isMusicPlaying = false;
+    let musicInitialized = false;
+
+    function loadAndPlayMusic() {
+        try {
+            if (backgroundMusic) {
+                backgroundMusic = null;
+            }
+
+            backgroundMusic = new Audio('sounds/tp_music.mp3');
+            backgroundMusic.preload = 'auto';
+            backgroundMusic.loop = true;
+            backgroundMusic.volume = 0.3;
+
+            backgroundMusic.addEventListener('canplaythrough', function() {
+                startMusic();
+            });
+
+            backgroundMusic.addEventListener('error', function(e) {
+            });
+
+            backgroundMusic.load();
+
+        } catch (error) {
+        }
+    }
+
+    function startMusic() {
+        if (backgroundMusic && !isMusicPlaying) {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play().then(() => {
+                isMusicPlaying = true;
+                musicInitialized = true;
+            }).catch(e => {});
+        } else if (!backgroundMusic) {
+            loadAndPlayMusic();
+        }
+    }
+
+    function forceStartMusic() {
+        if (backgroundMusic) {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play().then(() => {
+                isMusicPlaying = true;
+                musicInitialized = true;
+            }).catch(e => {});
+        } else {
+            loadAndPlayMusic();
+        }
+    }
+
+    document.addEventListener('visibilitychange', function() {
+        if (backgroundMusic && musicInitialized) {
+            if (document.hidden) {
+                backgroundMusic.pause();
+                isMusicPlaying = false;
+            } else {
+                if (!isMusicPlaying) {
+                    backgroundMusic.play().then(() => {
+                        isMusicPlaying = true;
+                    }).catch(e => {});
+                }
+            }
+        }
+    });
+
+    document.addEventListener('click', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+
+    document.addEventListener('keydown', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+
+    document.addEventListener('mousemove', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+
+    document.addEventListener('touchstart', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+
+     let currentScore = 0;
+     let currentPosition = "Başlangıç";
+     let gameStarted = false;
+
+     let gameState = {
+         character: {
+             x: 0,
+             y: 0,
+             image: 'img/tp_karakter.png',
+             isVisible: true
+         },
+         mapImage: null,
+         obstacles: [], // Engel koordinatları
+         helpfulItems: [], // Yararlı nesne koordinatları
+         path: [], // Yol koordinatları
+         score: 0,
+         position: "Başlangıç"
+     };
+
+    const pathColor = { r: 240, g: 248, b: 255 };
+    const colorTolerance = 0; // Renk toleransı yok, bire bir eşleşme gerekli
+
+    const pathEdgeColor = { r: 2, g: 3, b: 2 };
+
+    const startColor = { r: 249, g: 248, b: 255 }; // #f9f8ff
+
+    const specialEntryColor = { r: 63, g: 72, b: 204 };   // #3f48cc
+    const specialMidColor   = { r: 0,  g: 168, b: 243 };   // #00a8f3
+    const specialFinalColor = { r: 140, g: 255, b: 251 };  // #8cfffb
+
+    const finishColor = { r: 184, g: 61, b: 186 };
+
+    const forbiddenColors = [pathEdgeColor];
+
+    let gameRunning = true;
+    let completionAnimationActive = false;
+    let animationTimeouts = [];
+
+    let specialSequenceState = 'path';
+    let cyclePath = null; // Başlanan döngü: 'final', 'entry-mid-final'
+    let entryCycleCanExit = false; // Uzun döngüde path'e dönüş izni
+
+    const collectibleItems = [
+        {
+            id: 'bag',
+            name: 'AFAD Çantası',
+            image: 'img/tp_afad_cantasi.png',
+            sound: 'sounds/tp_correct.mp3',
+            x: 130,
+            y: 2700,
+            collected: false
+        },
+        {
+            id: 'duduk',
+            name: 'Düdük',
+            image: 'img/tp_duduk.png',
+            sound: 'sounds/tp_correct.mp3',
+            x: 2150,
+            y: 2650,
+            collected: false
+        },
+        {
+            id: 'radyo',
+            name: 'Radyo',
+            image: 'img/tp_radyo.PNG',
+            sound: 'sounds/tp_correct.mp3',
+            x: 4850,
+            y: 500,
+            collected: false
+        },
+        {
+            id: 'fener',
+            name: 'Fener',
+            image: 'img/tp_fener.png',
+            sound: 'sounds/tp_correct.mp3',
+            x: 4550,
+            y: 3850,
+            collected: false
+        },
+        {
+            id: 'powerbank',
+            name: 'Powerbank',
+            image: 'img/tp_powerbank.png',
+            sound: 'sounds/tp_correct.mp3',
+            x: 4000,
+            y: 4550,
+            collected: false
+        },
+        {
+            id: 'su',
+            name: 'Su',
+            image: 'img/tp_su.png',
+            sound: 'sounds/tp_correct.mp3',
+            x: 5400,
+            y: 2950,
+            collected: false
+        },
+        {
+            id: 'ilk_yardim',
+            name: 'İlk Yardım Çantası',
+            image: 'img/tp_ilk_yardim.png',
+            sound: 'sounds/tp_correct.mp3',
+            x: 3250,
+            y: 1450,
+            collected: false
+        }
+    ];
+    const collectedItems = [];
+    const itemElements = new Map();
+
+    function getViewportScale(baseWidth = 1280, minScale = 0.75, maxScale = 1.4) {
+        const vw = window.innerWidth || document.documentElement.clientWidth || baseWidth;
+        const scale = vw / baseWidth;
+        return Math.max(minScale, Math.min(maxScale, scale));
+    }
+
+     let mapCanvasCache = null;
+     let mapImageDataCache = null;
+     let mapImageDataWidth = 0;
+     let mapImageDataHeight = 0;
+
+    function cacheMapImageData() {
+        const maskImage = document.getElementById('mapMaskImage');
+        const mapImage = document.getElementById('mapImage');
+        const sourceImage = (maskImage && maskImage.complete) ? maskImage : mapImage;
+        if (!sourceImage || !sourceImage.complete) {
+            return false;
+        }
+
+        if (mapCanvasCache &&
+            mapCanvasCache.width === sourceImage.naturalWidth &&
+            mapCanvasCache.height === sourceImage.naturalHeight) {
+             return true;
+         }
+
+         mapCanvasCache = document.createElement('canvas');
+         const ctx = mapCanvasCache.getContext('2d');
+        mapCanvasCache.width = sourceImage.naturalWidth;
+        mapCanvasCache.height = sourceImage.naturalHeight;
+
+        ctx.drawImage(sourceImage, 0, 0);
+
+         mapImageDataCache = ctx.getImageData(0, 0, mapCanvasCache.width, mapCanvasCache.height);
+         mapImageDataWidth = mapCanvasCache.width;
+         mapImageDataHeight = mapCanvasCache.height;
+
+         return true;
+     }
+
+     function getPixelFromCache(x, y) {
+         if (!mapImageDataCache) {
+             if (!cacheMapImageData()) {
+                 return null;
+             }
+         }
+
+         const px = Math.floor(x);
+         const py = Math.floor(y);
+
+         if (px < 0 || px >= mapImageDataWidth || py < 0 || py >= mapImageDataHeight) {
+             return null;
+         }
+
+         const index = (py * mapImageDataWidth + px) * 4;
+         return {
+             r: mapImageDataCache.data[index],
+             g: mapImageDataCache.data[index + 1],
+             b: mapImageDataCache.data[index + 2],
+             a: mapImageDataCache.data[index + 3]
+         };
+     }
+
+    function checkFinishCondition() {
+        if (!gameRunning) return;
+
+        const pixel = getPixelFromCache(gameState.character.x, gameState.character.y);
+        if (!pixel) return;
+
+        if (isFinishColor(pixel.r, pixel.g, pixel.b)) {
+            endGame();
+        }
+    }
+
+    function endGame() {
+        if (!gameRunning) return;
+        gameRunning = false;
+        showCompletionEffects();
+    }
+
+     function oyunuSifirla() {
+       clearCompletionEffects();
+
+       localStorage.removeItem('tahliye_plani_state');
+
+       currentScore = 0;
+       currentPosition = "Başlangıç";
+       gameStarted = false;
+       gameRunning = true;
+       isDragging = false; // Sürükleme durumunu sıfırla
+      gameState.score = 0;
+      specialSequenceState = 'path';
+      cyclePath = null; // Döngü takibini sıfırla
+
+       const startPoint = findPathStart();
+       gameState.character.x = startPoint.x;
+       gameState.character.y = startPoint.y;
+      updateSpecialSequenceState(gameState.character.x, gameState.character.y);
+      resetCollectibleItems();
+       updateCharacterPosition();
+
+       const character = document.getElementById('character');
+       if (character) {
+           character.style.cursor = 'none';
+       }
+
+       updateDisplay();
+     }
+
+    function guncelleYildizlar() {
+      const starsElement = document.getElementById('stars');
+      if (!starsElement) return;
+      const yildizSayisi = collectedItems.length;
+      const chips = [];
+      for (let i = 0; i < yildizSayisi; i++) chips.push('<span class="star-chip">⭐</span>');
+      starsElement.innerHTML = chips.join(' ');
+    }
+
+    function updateDisplay() {
+      guncelleYildizlar();
+      updateCollectedItemsUI();
+    }
+
+    function showMessage(text, type) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.textContent = text;
+      messageDiv.className = `message alert alert-${type}`;
+      messageDiv.style.display = 'block';
+
+      setTimeout(() => {
+        messageDiv.style.display = 'none';
+      }, 3000);
+    }
+
+    function colorsMatch(r, g, b, color, tolerance = colorTolerance) {
+        return Math.abs(r - color.r) <= tolerance &&
+               Math.abs(g - color.g) <= tolerance &&
+               Math.abs(b - color.b) <= tolerance;
+    }
+
+    function isPathColor(r, g, b) {
+        return colorsMatch(r, g, b, pathColor);
+    }
+
+    function isStartColor(r, g, b) {
+        return colorsMatch(r, g, b, startColor);
+    }
+
+    function isEdgeColor(r, g, b) {
+        return colorsMatch(r, g, b, pathEdgeColor);
+    }
+
+    function isSpecialEntryColor(r, g, b) {
+        return colorsMatch(r, g, b, specialEntryColor);
+    }
+
+    function isSpecialMidColor(r, g, b) {
+        return colorsMatch(r, g, b, specialMidColor);
+    }
+
+    function isSpecialFinalColor(r, g, b) {
+        return colorsMatch(r, g, b, specialFinalColor);
+    }
+
+    function isFinishColor(r, g, b) {
+        return colorsMatch(r, g, b, finishColor);
+    }
+
+    function isForbiddenColor(r, g, b) {
+        return forbiddenColors.some(color => colorsMatch(r, g, b, color));
+    }
+
+    function isAllowedColor(r, g, b) {
+        if (isEdgeColor(r, g, b)) return false;
+
+        if (isFinishColor(r, g, b)) return true;
+
+        switch (specialSequenceState) {
+            case 'path':
+                return isPathColor(r, g, b) || isStartColor(r, g, b) || isSpecialEntryColor(r, g, b) || isSpecialFinalColor(r, g, b) || isFinishColor(r, g, b);
+            case 'entry':
+                if (cyclePath === 'entry-mid-final') {
+                    const stayInCycle = isSpecialEntryColor(r, g, b) || isSpecialMidColor(r, g, b);
+                    const canExit = entryCycleCanExit && (isPathColor(r, g, b) || isStartColor(r, g, b));
+                    return stayInCycle || canExit;
+                } else {
+                    return isSpecialEntryColor(r, g, b) || isSpecialMidColor(r, g, b);
+                }
+            case 'mid':
+                if (cyclePath === 'entry-mid-final') {
+                    return isSpecialMidColor(r, g, b) || isSpecialEntryColor(r, g, b) || isSpecialFinalColor(r, g, b);
+                } else {
+                    return isSpecialMidColor(r, g, b) || isSpecialEntryColor(r, g, b);
+                }
+            case 'final':
+                if (cyclePath === 'final') {
+                    return isSpecialFinalColor(r, g, b) || isPathColor(r, g, b) || isStartColor(r, g, b);
+                } else if (cyclePath === 'entry-mid-final') {
+                    return isSpecialFinalColor(r, g, b) || isSpecialMidColor(r, g, b);
+                } else {
+                    return isSpecialFinalColor(r, g, b) || isSpecialMidColor(r, g, b) || isPathColor(r, g, b) || isStartColor(r, g, b);
+                }
+            default:
+                return false;
+        }
+    }
+
+    function isTraversablePixel(x, y) {
+        return isValidMove(x, y);
+    }
+
+    function createCollectibleItems() {
+        const layer = document.getElementById('itemLayer');
+        if (!layer) return;
+
+        collectibleItems.forEach(item => {
+            if (itemElements.has(item.id)) return;
+            const el = document.createElement('img');
+            el.src = item.image;
+            el.alt = item.name;
+            el.className = 'collectible-item';
+            el.dataset.itemId = item.id;
+            layer.appendChild(el);
+            itemElements.set(item.id, el);
+        });
+
+        updateCollectiblePositions();
+    }
+
+    function updateCollectiblePositions() {
+        const layer = document.getElementById('itemLayer');
+        const mapImage = document.getElementById('mapImage');
+        if (!layer || !mapImage) return;
+
+        const mapWidth = mapImage.offsetWidth || mapImage.naturalWidth;
+        const mapHeight = mapImage.offsetHeight || mapImage.naturalHeight;
+        const naturalWidth = mapImage.naturalWidth || mapWidth;
+        const naturalHeight = mapImage.naturalHeight || mapHeight;
+
+        const isMobile = window.innerWidth <= 1024;
+        const scaleX = mapWidth / naturalWidth;
+        const scaleY = mapHeight / naturalHeight;
+        const scale = Math.min(scaleX, scaleY);
+        const viewportScale = getViewportScale(isMobile ? 768 : 1280, isMobile ? 0.85 : 0.8, isMobile ? 1.3 : 1.5);
+
+        collectibleItems.forEach(item => {
+            const el = itemElements.get(item.id);
+            if (!el) return;
+
+            if (item.collected === true) {
+                el.style.display = 'none';
+                el.style.visibility = 'hidden';
+                el.style.opacity = '0';
+                return;
+            }
+
+            el.style.display = 'block';
+            el.style.visibility = 'visible';
+            el.style.opacity = '1';
+            const x = item.x * scaleX;
+            const y = item.y * scaleY;
+            const isDuduk = item.id === 'duduk';
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+        });
+    }
+
+    function resetCollectibleItems() {
+        collectedItems.length = 0;
+        collectibleItems.forEach(item => {
+            item.collected = false;
+            const el = itemElements.get(item.id);
+            if (el) {
+                el.style.display = 'block';
+                el.style.visibility = 'visible';
+                el.style.opacity = '1';
+                el.style.pointerEvents = 'auto';
+            }
+        });
+        updateCollectedItemsUI();
+        updateCollectiblePositions();
+    }
+
+    function updateCollectedItemsUI() {
+        const list = document.getElementById('collectedItemsList');
+        if (!list) return;
+
+        if (collectedItems.length === 0) {
+            list.innerHTML = '<div class="no-items">Henüz eşya toplanmadı</div>';
+            return;
+        }
+
+        list.innerHTML = collectedItems.map(item => `
+            <div class="collected-item" title="${item.name}">
+                <img src="${item.image}" alt="${item.name}">
+            </div>
+        `).join('');
+    }
+
+    function checkCollectibleCollisions() {
+        collectibleItems.forEach(item => {
+            if (item.collected) return;
+            const dx = gameState.character.x - item.x;
+            const dy = gameState.character.y - item.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const threshold = 45;
+
+            if (distance <= threshold) {
+                collectCollectible(item);
+            }
+        });
+    }
+
+    function collectCollectible(item) {
+        if (item.collected) return;
+        item.collected = true;
+        const el = itemElements.get(item.id);
+        if (el) {
+            showCollectiblePopup(el);
+            el.style.display = 'none';
+            el.style.visibility = 'hidden';
+            el.style.opacity = '0';
+            el.style.pointerEvents = 'none';
+        }
+        playCollectibleSound(item);
+        collectedItems.unshift({ id: item.id, name: item.name, image: item.image });
+        gameState.score += 10;
+        updateDisplay();
+        updateCollectedItemsUI();
+    }
+
+    function showCollectiblePopup(sourceEl) {
+        if (!sourceEl) return;
+        const rect = sourceEl.getBoundingClientRect();
+        const popup = sourceEl.cloneNode(true);
+        popup.className = 'item-popup success';
+        popup.style.position = 'fixed';
+        popup.style.transformOrigin = 'center center';
+        const centerX = window.innerWidth / 2;
+        const centerY = window.innerHeight / 2;
+        popup.style.left = `${centerX}px`;
+        popup.style.top = `${centerY}px`;
+        popup.style.width = `${rect.width}px`;
+        popup.style.height = `${rect.height}px`;
+        popup.style.marginLeft = `-${rect.width / 2}px`;
+        popup.style.marginTop = `-${rect.height / 2}px`;
+        popup.style.transform = 'scale(0.3)';
+        popup.style.opacity = '0';
+        popup.style.zIndex = '10001';
+        popup.style.pointerEvents = 'none';
+        document.body.appendChild(popup);
+        document.body.classList.add('collectible-popup-active');
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                popup.style.transition = 'opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                popup.style.transform = 'scale(2.1)';
+                popup.style.opacity = '1';
+
+                setTimeout(() => {
+                    popup.style.transition = 'opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+                    popup.style.transform = 'scale(2.4) translateY(-90px)';
+                    popup.style.opacity = '0';
+                }, 700);
+
+                setTimeout(() => {
+                    popup.remove();
+                    document.body.classList.remove('collectible-popup-active');
+                }, 1150);
+            });
+        });
+    }
+
+    function playCollectibleSound(item) {
+        const soundPath = item.sound || 'sounds/tp_correct.mp3';
+        try {
+            const audio = new Audio(soundPath);
+            audio.volume = 0.5;
+            audio.play().catch(() => {});
+        } catch(_) {}
+    }
+
+    function updateSpecialSequenceState(x, y) {
+        const pixel = getPixelFromCache(x, y);
+        if (!pixel) return;
+
+        const onPath = isPathColor(pixel.r, pixel.g, pixel.b) || isStartColor(pixel.r, pixel.g, pixel.b);
+        const onEntry = isSpecialEntryColor(pixel.r, pixel.g, pixel.b);
+        const onMid = isSpecialMidColor(pixel.r, pixel.g, pixel.b);
+        const onFinal = isSpecialFinalColor(pixel.r, pixel.g, pixel.b);
+        const onFinish = isFinishColor(pixel.r, pixel.g, pixel.b);
+
+        let zoneLabel = 'Bilinmiyor';
+        if (onFinish) zoneLabel = 'Finish';
+        else if (onFinal) zoneLabel = 'Final';
+        else if (onMid) zoneLabel = 'Mid';
+        else if (onEntry) zoneLabel = 'Entry';
+        else if (onPath) zoneLabel = 'Path';
+
+        switch (specialSequenceState) {
+            case 'path':
+                if (onFinal) {
+                    specialSequenceState = 'final';
+                    cyclePath = 'final'; // path->final->path döngüsü
+                    entryCycleCanExit = false;
+                } else if (onEntry) {
+                    specialSequenceState = 'entry';
+                    cyclePath = 'entry-mid-final'; // path->entry->mid->final->mid->entry->path döngüsü başlat
+                    entryCycleCanExit = false;
+                } else {
+                    cyclePath = null;
+                    entryCycleCanExit = false;
+                }
+                break;
+            case 'entry':
+                if (onMid) {
+                    specialSequenceState = 'mid';
+                } else if (onPath && cyclePath === 'entry-mid-final' && entryCycleCanExit) {
+                    specialSequenceState = 'path';
+                    cyclePath = null; // path->entry->mid->final->mid->entry->path döngüsü tamamlandı
+                    entryCycleCanExit = false;
+                }
+                break;
+            case 'mid':
+                if (onEntry) {
+                    specialSequenceState = 'entry';
+                } else if (onFinal) {
+                    specialSequenceState = 'final';
+                }
+                break;
+            case 'final':
+                if (cyclePath === 'final') {
+                    if (onPath) {
+                        specialSequenceState = 'path';
+                        cyclePath = null; // Döngü tamamlandı
+                        entryCycleCanExit = false;
+                    }
+                } else if (cyclePath === 'entry-mid-final') {
+                    if (onMid) {
+                        specialSequenceState = 'mid';
+                        entryCycleCanExit = true;
+                    }
+                } else {
+                    if (onMid) {
+                        specialSequenceState = 'mid';
+                    } else if (onPath) {
+                        specialSequenceState = 'path';
+                        cyclePath = null;
+                        entryCycleCanExit = false;
+                    }
+                }
+                break;
+            default:
+                specialSequenceState = 'path';
+                cyclePath = null;
+                entryCycleCanExit = false;
+                break;
+        }
+
+    }
+
+    function isValidMove(x, y) {
+        const pixel = getPixelFromCache(x, y);
+        if (!pixel) {
+            return false;
+        }
+
+        return isAllowedColor(pixel.r, pixel.g, pixel.b);
+    }
+
+     function hasNonWhiteNeighbor(x, y, radius = 2) {
+         for (let dy = -radius; dy <= radius; dy++) {
+             for (let dx = -radius; dx <= radius; dx++) {
+                 if (dx === 0 && dy === 0) continue;
+
+                 const checkX = Math.floor(x + dx);
+                 const checkY = Math.floor(y + dy);
+                 const pixel = getPixelFromCache(checkX, checkY);
+
+                if (pixel && !isAllowedColor(pixel.r, pixel.g, pixel.b)) {
+                     return true; // Etrafta beyaz olmayan nokta var
+                 }
+             }
+         }
+         return false; // Etrafta sadece beyaz var
+     }
+
+    function isPathValid(fromX, fromY, toX, toY, stepSize = 1) {
+        const distance = Math.sqrt(Math.pow(toX - fromX, 2) + Math.pow(toY - fromY, 2));
+
+        if (distance === 0) {
+            return isValidMove(toX, toY);
+        }
+
+        if (!isValidMove(fromX, fromY) || !isValidMove(toX, toY)) {
+            return false;
+        }
+
+        const toPixel = getPixelFromCache(toX, toY);
+        const isTargetFinish = toPixel && isFinishColor(toPixel.r, toPixel.g, toPixel.b);
+        const isTargetFinal = toPixel && isSpecialFinalColor(toPixel.r, toPixel.g, toPixel.b);
+
+        const steps = Math.max(1, Math.ceil(distance / stepSize));
+        const normalizedX = (toX - fromX) / distance;
+        const normalizedY = (toY - fromY) / distance;
+
+        for (let i = 1; i <= steps; i++) {
+            const travel = Math.min(distance, i * stepSize);
+            const checkX = fromX + normalizedX * travel;
+            const checkY = fromY + normalizedY * travel;
+
+            const checkPixel = getPixelFromCache(checkX, checkY);
+            if (!checkPixel) return false;
+
+            if (isTargetFinish) {
+                const isPath = isPathColor(checkPixel.r, checkPixel.g, checkPixel.b);
+                const isFinish = isFinishColor(checkPixel.r, checkPixel.g, checkPixel.b);
+                const isStart = isStartColor(checkPixel.r, checkPixel.g, checkPixel.b);
+                if (!isPath && !isFinish && !isStart) {
+                    if (!isTraversablePixel(checkX, checkY)) {
+                        return false;
+                    }
+                }
+            } else if (isTargetFinal) {
+                const isPath = isPathColor(checkPixel.r, checkPixel.g, checkPixel.b);
+                const isFinal = isSpecialFinalColor(checkPixel.r, checkPixel.g, checkPixel.b);
+                const isStart = isStartColor(checkPixel.r, checkPixel.g, checkPixel.b);
+                if (!isPath && !isFinal && !isStart) {
+                    if (!isTraversablePixel(checkX, checkY)) {
+                        return false;
+                    }
+                }
+            } else {
+                if (!isTraversablePixel(checkX, checkY)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+     function moveCharacterTowardsDirection(currentX, currentY, targetX, targetY, maxDistance = 40) {
+         const dx = targetX - currentX;
+         const dy = targetY - currentY;
+         const distance = Math.sqrt(dx * dx + dy * dy);
+
+         if (distance === 0) return false;
+
+         const normalizedX = dx / distance;
+         const normalizedY = dy / distance;
+
+         const limitedDistance = Math.min(maxDistance, distance);
+         let bestX = currentX;
+         let bestY = currentY;
+         let bestDistance = 0;
+
+         for (let step = 2; step <= limitedDistance; step += 3) {
+             const checkX = currentX + normalizedX * step;
+             const checkY = currentY + normalizedY * step;
+
+             if (isValidMove(checkX, checkY)) {
+                 bestX = checkX;
+                 bestY = checkY;
+                 bestDistance = step;
+             } else {
+                 break;
+             }
+         }
+
+         if (bestDistance > 0) {
+             moveCharacter(bestX, bestY);
+             return true;
+         }
+
+         return false;
+     }
+
+     function moveCharacterTowardsMouseDirection(currentX, currentY, mouseX, mouseY, maxDistance = 55) {
+         const dx = mouseX - currentX;
+         const dy = mouseY - currentY;
+         const distance = Math.sqrt(dx * dx + dy * dy);
+
+         if (distance === 0) return false;
+
+         const normalizedDx = dx / distance;
+         const normalizedDy = dy / distance;
+
+         const allDirections = [
+             { dx: 1, dy: 0, name: 'east', priority: 0 },      // Doğu
+             { dx: -1, dy: 0, name: 'west', priority: 0 },     // Batı
+             { dx: 0, dy: 1, name: 'south', priority: 0 },     // Güney
+             { dx: 0, dy: -1, name: 'north', priority: 0 },    // Kuzey
+             { dx: 1, dy: 1, name: 'southeast', priority: 1 },  // Güneydoğu
+             { dx: -1, dy: 1, name: 'southwest', priority: 1 }, // Güneybatı
+             { dx: 1, dy: -1, name: 'northeast', priority: 1 }, // Kuzeydoğu
+             { dx: -1, dy: -1, name: 'northwest', priority: 1 } // Kuzeybatı
+         ];
+
+         allDirections.forEach(dir => {
+             const dirLength = Math.sqrt(dir.dx * dir.dx + dir.dy * dir.dy);
+             const normalizedDirDx = dir.dx / dirLength;
+             const normalizedDirDy = dir.dy / dirLength;
+
+             const dotProduct = normalizedDx * normalizedDirDx + normalizedDy * normalizedDirDy;
+
+             dir.score = dotProduct * (1 + (1 - dir.priority) * 0.3);
+         });
+
+         allDirections.sort((a, b) => b.score - a.score);
+
+         const stepSizes = [4, 6, 8, 12, 18, 25, 35];
+         let bestX = currentX;
+         let bestY = currentY;
+         let bestDistance = 0;
+         let bestScore = -Infinity;
+
+         const directStepSizes = [3, 5, 8, 12, 18, 25];
+         for (let stepSize of directStepSizes) {
+             for (let step = stepSize; step <= maxDistance; step += stepSize) {
+                 const directX = currentX + normalizedDx * step;
+                 const directY = currentY + normalizedDy * step;
+
+                 if (isValidMove(directX, directY)) {
+                     const distToMouse = Math.sqrt(Math.pow(mouseX - directX, 2) + Math.pow(mouseY - directY, 2));
+                     const currentDistToMouse = Math.sqrt(Math.pow(mouseX - currentX, 2) + Math.pow(mouseY - currentY, 2));
+                     const distanceImprovement = currentDistToMouse - distToMouse;
+                     const directScore = distanceImprovement * 2.5;
+
+                     const currentBestDistToMouse = bestDistance > 0 ? Math.sqrt(Math.pow(mouseX - bestX, 2) + Math.pow(mouseY - bestY, 2)) : Infinity;
+                     if (directScore > bestScore || (Math.abs(directScore - bestScore) < 0.1 && distToMouse < currentBestDistToMouse)) {
+                         bestX = directX;
+                         bestY = directY;
+                         bestDistance = step;
+                         bestScore = directScore;
+                     }
+                 } else {
+                     break;
+                 }
+             }
+             const currentBestDistToMouse = bestDistance > 0 ? Math.sqrt(Math.pow(mouseX - bestX, 2) + Math.pow(mouseY - bestY, 2)) : Infinity;
+             if (currentBestDistToMouse < 10) break;
+         }
+
+         for (let dir of allDirections) {
+             for (let stepSize of stepSizes) {
+                 for (let step = stepSize; step <= maxDistance; step += stepSize) {
+                     const checkX = currentX + dir.dx * step;
+                     const checkY = currentY + dir.dy * step;
+
+                     if (isValidMove(checkX, checkY)) {
+                         const distToMouse = Math.sqrt(Math.pow(mouseX - checkX, 2) + Math.pow(mouseY - checkY, 2));
+                         const currentDistToMouse = Math.sqrt(Math.pow(mouseX - currentX, 2) + Math.pow(mouseY - currentY, 2));
+
+                         const distanceImprovement = currentDistToMouse - distToMouse;
+
+                         const combinedScore = (distanceImprovement * 2.0) + (dir.score * 0.5) + (step / maxDistance * 0.3);
+
+                         if (combinedScore > bestScore || (Math.abs(combinedScore - bestScore) < 0.1 && distToMouse < Math.sqrt(Math.pow(mouseX - bestX, 2) + Math.pow(mouseY - bestY, 2)))) {
+                             bestX = checkX;
+                             bestY = checkY;
+                             bestDistance = step;
+                             bestScore = combinedScore;
+                         }
+                     } else {
+                         break;
+                     }
+                 }
+
+                 const currentBestDistToMouse = Math.sqrt(Math.pow(mouseX - bestX, 2) + Math.pow(mouseY - bestY, 2));
+                 if (bestDistance > 0 && currentBestDistToMouse < 20 && stepSize >= 12) break;
+             }
+
+             const currentBestDistToMouse = bestDistance > 0 ? Math.sqrt(Math.pow(mouseX - bestX, 2) + Math.pow(mouseY - bestY, 2)) : Infinity;
+             if (bestDistance > 0 && currentBestDistToMouse < 15) break;
+         }
+
+         if (bestDistance > 0 && bestDistance < maxDistance * 0.7) {
+             const topDir = allDirections[0];
+             const secondDir = allDirections[1];
+
+             if (topDir && secondDir && topDir.score > 0.5 && secondDir.score > 0.3) {
+                 for (let step = bestDistance + 4; step <= maxDistance; step += 4) {
+                     const combinedDx = (topDir.dx + secondDir.dx * 0.5) * step;
+                     const combinedDy = (topDir.dy + secondDir.dy * 0.5) * step;
+                     const checkX = currentX + combinedDx;
+                     const checkY = currentY + combinedDy;
+
+                     if (isValidMove(checkX, checkY)) {
+                         const distToMouse = Math.sqrt(Math.pow(mouseX - checkX, 2) + Math.pow(mouseY - checkY, 2));
+                         const currentDistToMouse = Math.sqrt(Math.pow(mouseX - currentX, 2) + Math.pow(mouseY - currentY, 2));
+                         const distanceImprovement = currentDistToMouse - distToMouse;
+
+                         const combinedScore = (distanceImprovement * 2.0) + ((topDir.score + secondDir.score * 0.5) * 0.5);
+
+                         if (combinedScore > bestScore || (Math.abs(combinedScore - bestScore) < 0.1 && distToMouse < Math.sqrt(Math.pow(mouseX - bestX, 2) + Math.pow(mouseY - bestY, 2)))) {
+                             bestX = checkX;
+                             bestY = checkY;
+                             bestDistance = step;
+                             bestScore = combinedScore;
+                         }
+                     } else {
+                         break;
+                     }
+                 }
+             }
+         }
+
+         if (bestDistance > 0) {
+             moveCharacter(bestX, bestY);
+             return true;
+         }
+
+         return false;
+     }
+
+     function moveCharacterSafely(targetX, targetY, maxStepSize = 30) {
+        const currentX = gameState.character.x;
+        const currentY = gameState.character.y;
+
+         const dx = targetX - currentX;
+         const dy = targetY - currentY;
+         const distanceSquared = dx * dx + dy * dy;
+         const maxStepSquared = maxStepSize * maxStepSize;
+
+         if (distanceSquared <= maxStepSquared) {
+             if (isValidMove(targetX, targetY)) {
+                 moveCharacter(targetX, targetY);
+                 return true;
+             }
+             return false;
+         }
+
+         const distance = Math.sqrt(distanceSquared);
+         const normalizedX = dx / distance;
+         const normalizedY = dy / distance;
+
+         let nextX = currentX + normalizedX * maxStepSize;
+         let nextY = currentY + normalizedY * maxStepSize;
+
+        if (!isPathValid(currentX, currentY, nextX, nextY)) {
+             let step = maxStepSize / 2;
+             let minStep = 1;
+             let maxStep = maxStepSize;
+
+             for (let i = 0; i < 3; i++) { // Max 3 iterasyon
+                 nextX = currentX + normalizedX * step;
+                 nextY = currentY + normalizedY * step;
+
+                if (isPathValid(currentX, currentY, nextX, nextY)) {
+                     minStep = step;
+                     step = (step + maxStep) / 2;
+                 } else {
+                     maxStep = step;
+                     step = (minStep + step) / 2;
+                 }
+             }
+
+            if (isPathValid(currentX, currentY, nextX, nextY)) {
+                 moveCharacter(nextX, nextY);
+                 return true;
+             }
+             return false;
+         } else {
+             moveCharacter(nextX, nextY);
+             return true;
+         }
+     }
+
+     function findPathStart() {
+        if (!cacheMapImageData() || !mapImageDataCache) {
+            return { x: 0, y: 0 };
+        }
+
+        for (let x = 0; x < mapImageDataWidth; x++) {
+            for (let y = 0; y < mapImageDataHeight; y++) {
+                const pixel = getPixelFromCache(x, y);
+                if (pixel && isStartColor(pixel.r, pixel.g, pixel.b)) {
+                    const startPosition = { x, y };
+
+                    return startPosition;
+                }
+            }
+        }
+
+        for (let x = 0; x < mapImageDataWidth; x++) {
+            for (let y = 0; y < mapImageDataHeight; y++) {
+                const pixel = getPixelFromCache(x, y);
+                if (pixel && isPathColor(pixel.r, pixel.g, pixel.b)) {
+                    const startPosition = { x, y };
+
+                    return startPosition;
+                }
+            }
+        }
+
+         return { x: 0, y: 0 };
+     }
+
+     function handleMapClick(x, y) {
+        if (moveCharacterSafely(x, y, 15)) {
+            showMessage(`Karakter (${Math.round(x)}, ${Math.round(y)}) konumuna taşındı`, "success");
+        } else {
+            showMessage("Bu alana geçiş yapılamıyor", "warning");
+        }
+
+     }
+
+     function hasObstacle(x, y) {
+         for (let obstacle of gameState.obstacles) {
+             let distance = Math.sqrt(
+                 Math.pow(x - obstacle.x, 2) +
+                 Math.pow(y - obstacle.y, 2)
+             );
+
+             if (distance < obstacle.radius) {
+                 return true;
+             }
+         }
+         return false;
+     }
+
+     let targetX = 0;
+     let targetY = 0;
+     let isAnimating = false;
+     let animationFrameId = null;
+
+     function animateCharacterMovement() {
+         if (!isAnimating) return;
+
+         const currentX = gameState.character.x;
+         const currentY = gameState.character.y;
+
+         const dx = targetX - currentX;
+         const dy = targetY - currentY;
+         const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance < 0.5) {
+            gameState.character.x = targetX;
+            gameState.character.y = targetY;
+            updateSpecialSequenceState(gameState.character.x, gameState.character.y);
+            checkCollectibleCollisions();
+            checkFinishCondition();
+            updateCharacterPosition();
+             isAnimating = false;
+             if (animationFrameId) {
+                 cancelAnimationFrame(animationFrameId);
+                 animationFrameId = null;
+             }
+             return;
+         }
+
+         const distToTarget = Math.sqrt(Math.pow(targetX - currentX, 2) + Math.pow(targetY - currentY, 2));
+         const baseSpeed = 45;
+         const speed = Math.min(baseSpeed, Math.max(20, distToTarget * 0.9)); // Mouse'a yakınsa yavaşla, uzaksa hızlan (daha agresif)
+         const moveDistance = Math.min(speed, distance);
+         const ratio = moveDistance / distance;
+
+         const newX = currentX + dx * ratio;
+         const newY = currentY + dy * ratio;
+
+        const isPathToNewPosValid = isPathValid(currentX, currentY, newX, newY);
+
+         if (isPathToNewPosValid && isValidMove(newX, newY)) {
+            gameState.character.x = newX;
+            gameState.character.y = newY;
+            updateSpecialSequenceState(gameState.character.x, gameState.character.y);
+            checkCollectibleCollisions();
+            checkFinishCondition();
+            updateCharacterPosition();
+         } else {
+             const directionMove = moveCharacterTowardsDirection(currentX, currentY, targetX, targetY, speed * 1.5);
+             if (!directionMove) {
+                 isAnimating = false;
+                 if (animationFrameId) {
+                     cancelAnimationFrame(animationFrameId);
+                     animationFrameId = null;
+                 }
+                 return;
+             }
+         }
+
+         animationFrameId = requestAnimationFrame(animateCharacterMovement);
+     }
+
+     function moveCharacter(x, y) {
+         targetX = x;
+         targetY = y;
+
+         if (!isAnimating) {
+             isAnimating = true;
+             animationFrameId = requestAnimationFrame(animateCharacterMovement);
+         }
+
+         if (!isDragging) {
+             gameState.score += 10;
+             updateDisplay();
+         }
+     }
+
+     function updateCharacterPosition() {
+         const character = document.getElementById('character');
+         const mapImage = document.getElementById('mapImage');
+
+         if (character && mapImage) {
+             let mapWidth = mapImage.offsetWidth;
+             let mapHeight = mapImage.offsetHeight;
+             let naturalWidth = mapImage.naturalWidth;
+             let naturalHeight = mapImage.naturalHeight;
+
+            const characterSizeW = character.offsetWidth || 50;
+            const characterSizeH = character.offsetHeight || 50;
+
+             let relativeX = (gameState.character.x / naturalWidth) * mapWidth;
+             let relativeY = (gameState.character.y / naturalHeight) * mapHeight;
+
+            const halfWidth = characterSizeW / 2;
+            const halfHeight = characterSizeH / 2;
+            let finalX = relativeX - halfWidth;
+            let finalY = relativeY - halfHeight;
+
+             character.style.left = finalX + 'px';
+             character.style.top = finalY + 'px';
+             character.style.display = 'block';
+             character.style.pointerEvents = 'auto';
+
+             character.style.transition = 'none';
+            updateCollectiblePositions();
+         } else {
+         }
+     }
+
+    function checkHelpfulItem(x, y) {
+         for (let i = 0; i < gameState.helpfulItems.length; i++) {
+             let item = gameState.helpfulItems[i];
+             let distance = Math.sqrt(
+                 Math.pow(x - item.x, 2) +
+                 Math.pow(y - item.y, 2)
+             );
+
+             if (distance < item.radius) {
+                collectHelpfulItem(item, i);
+                 break;
+             }
+         }
+     }
+
+    function collectHelpfulItem(item, index) {
+         gameState.score += item.points;
+         gameState.helpfulItems.splice(index, 1);
+         showMessage(`+${item.points} puan! ${item.type} toplandı.`, "success");
+         updateDisplay();
+     }
+
+     let isDragging = false;
+     let dragStartX = 0;
+     let dragStartY = 0;
+
+     let isJoystickActive = false;
+     let joystickCenterX = 0;
+     let joystickCenterY = 0;
+     const isMobileDevice = window.innerWidth <= 1024;
+     let joystickMaxDistance = isMobileDevice ? 25 : 35; // Joystick stick'in maksimum hareket mesafesi
+
+    function initializeGame() {
+        createCollectibleItems();
+
+        const character = document.getElementById('character');
+
+         if (character) {
+             character.style.display = 'block';
+             character.style.pointerEvents = 'auto';
+             character.style.cursor = 'none';
+
+             let mouseOffsetX = 0;
+             let mouseOffsetY = 0;
+             let initialCharacterX = 0;
+             let initialCharacterY = 0;
+             let isMouseOverCharacter = false;
+
+             character.addEventListener('mouseenter', function(e) {
+                 isMouseOverCharacter = true;
+                 character.style.cursor = 'none';
+             });
+
+             character.addEventListener('mouseleave', function(e) {
+                 isMouseOverCharacter = false;
+                 if (isDragging && !e.buttons) {
+                     isDragging = false;
+                     character.style.cursor = 'none';
+
+                 }
+             });
+
+             character.addEventListener('mousedown', function(e) {
+                 e.preventDefault();
+                 e.stopPropagation();
+
+                 isDragging = true;
+
+                 const mapImage = document.getElementById('mapImage');
+                 const rect = mapImage.getBoundingClientRect();
+
+                 const mouseX = (e.clientX - rect.left) * (mapImage.naturalWidth / mapImage.offsetWidth);
+                 const mouseY = (e.clientY - rect.top) * (mapImage.naturalHeight / mapImage.offsetHeight);
+
+                 initialCharacterX = gameState.character.x;
+                 initialCharacterY = gameState.character.y;
+
+                 mouseOffsetX = mouseX - initialCharacterX;
+                 mouseOffsetY = mouseY - initialCharacterY;
+
+                 character.style.cursor = 'none';
+             });
+
+             document.addEventListener('mouseup', function(e) {
+                 if (isDragging) {
+                     isDragging = false;
+                     character.style.cursor = 'none';
+
+                 }
+             });
+
+             const mapImage = document.getElementById('mapImage');
+             const mapWrapper = mapImage ? mapImage.closest('.map-wrapper') : null;
+
+             let lastMoveTime = 0;
+             const throttleDelay = 4; // ~250 FPS - çok daha sık hareket için (mouse'a yakınlık için)
+
+             document.addEventListener('mousemove', function(e) {
+                 if (isDragging) {
+                     const now = Date.now();
+                     if (now - lastMoveTime < throttleDelay) {
+                         return;
+                     }
+                     lastMoveTime = now;
+
+                     e.preventDefault();
+
+                     const currentMapImage = document.getElementById('mapImage');
+                     if (!currentMapImage) {
+                         isDragging = false;
+                         return;
+                     }
+
+                     const rect = currentMapImage.getBoundingClientRect();
+
+                     const mouseX = e.clientX;
+                     const mouseY = e.clientY;
+
+                     if (mouseX < rect.left || mouseX > rect.right ||
+                         mouseY < rect.top || mouseY > rect.bottom) {
+                         isDragging = false;
+                         character.style.cursor = 'none';
+                         return;
+                     }
+
+                     const mouseXMap = (mouseX - rect.left) * (currentMapImage.naturalWidth / currentMapImage.offsetWidth);
+                     const mouseYMap = (mouseY - rect.top) * (currentMapImage.naturalHeight / currentMapImage.offsetHeight);
+
+                     let mouseTargetX = mouseXMap - mouseOffsetX;
+                     let mouseTargetY = mouseYMap - mouseOffsetY;
+
+                     mouseTargetX = Math.max(0, Math.min(mouseTargetX, currentMapImage.naturalWidth - 1));
+                     mouseTargetY = Math.max(0, Math.min(mouseTargetY, currentMapImage.naturalHeight - 1));
+
+                     const currentX = gameState.character.x;
+                     const currentY = gameState.character.y;
+
+                    const isPathCompletelyValid = isPathValid(currentX, currentY, mouseTargetX, mouseTargetY);
+
+                     if (isPathCompletelyValid) {
+                         moveCharacter(mouseTargetX, mouseTargetY);
+                     } else {
+                         if (!moveCharacterTowardsMouseDirection(currentX, currentY, mouseTargetX, mouseTargetY, 55)) {
+                             if (!moveCharacterTowardsDirection(currentX, currentY, mouseTargetX, mouseTargetY, 40)) {
+                                 moveCharacterSafely(mouseTargetX, mouseTargetY, 30);
+                             }
+                         }
+                     }
+                 }
+             });
+
+             if (mapWrapper) {
+                 mapWrapper.addEventListener('mouseleave', function(e) {
+                     if (isDragging) {
+                         isDragging = false;
+                         character.style.cursor = 'none';
+
+                     }
+                 });
+             }
+
+         } else {
+         }
+
+         const mapWrapper = document.querySelector('.map-wrapper');
+         const joystick = document.getElementById('joystick');
+         const joystickBase = joystick?.querySelector('.joystick-base');
+         const joystickStick = joystick?.querySelector('.joystick-stick');
+
+        if (mapWrapper && joystick && joystickBase && joystickStick) {
+             let touchId = null;
+
+             mapWrapper.addEventListener('touchstart', function(e) {
+                 if (e.touches.length > 0) {
+                     e.preventDefault();
+                     const touch = e.touches[0];
+                     touchId = touch.identifier;
+
+                     const mapImage = document.getElementById('mapImage');
+                     const wrapperRect = mapWrapper.getBoundingClientRect();
+                     const imageRect = mapImage.getBoundingClientRect();
+
+                     const relativeX = touch.clientX - wrapperRect.left;
+                     const relativeY = touch.clientY - wrapperRect.top;
+
+                     joystick.style.left = relativeX + 'px';
+                     joystick.style.top = relativeY + 'px';
+                     joystick.classList.add('active');
+
+                     joystickCenterX = touch.clientX;
+                     joystickCenterY = touch.clientY;
+                     isJoystickActive = true;
+
+                     joystickStick.style.transform = 'translate(-50%, -50%)';
+
+                 }
+             });
+
+             mapWrapper.addEventListener('touchmove', function(e) {
+                 if (!isJoystickActive || !touchId) return;
+
+                 e.preventDefault();
+
+                 let touch = null;
+                 for (let i = 0; i < e.touches.length; i++) {
+                     if (e.touches[i].identifier === touchId) {
+                         touch = e.touches[i];
+                         break;
+                     }
+                 }
+
+                 if (!touch) return;
+
+                 const mapImage = document.getElementById('mapImage');
+
+                 const dx = touch.clientX - joystickCenterX;
+                 const dy = touch.clientY - joystickCenterY;
+                 const distance = Math.sqrt(dx * dx + dy * dy);
+
+                 const limitedDistance = Math.min(distance, joystickMaxDistance);
+                 const angle = Math.atan2(dy, dx);
+
+                 const stickX = Math.cos(angle) * limitedDistance;
+                 const stickY = Math.sin(angle) * limitedDistance;
+
+                 joystickStick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+
+                 if (limitedDistance > 5) { // Minimum hareket eşiği
+                     const currentX = gameState.character.x;
+                     const currentY = gameState.character.y;
+
+                     const speed = 40 * (limitedDistance / joystickMaxDistance); // Hız joystick mesafesine göre (daha da artırıldı)
+                     const targetX = currentX + Math.cos(angle) * speed;
+                     const targetY = currentY + Math.sin(angle) * speed;
+
+                     const boundedX = Math.max(0, Math.min(targetX, mapImage.naturalWidth - 1));
+                     const boundedY = Math.max(0, Math.min(targetY, mapImage.naturalHeight - 1));
+                    const isPathCompletelyValid = isPathValid(currentX, currentY, boundedX, boundedY);
+
+                     if (isPathCompletelyValid) {
+                        moveCharacter(boundedX, boundedY);
+                     } else {
+                        if (!moveCharacterTowardsMouseDirection(currentX, currentY, boundedX, boundedY, speed * 1.5)) {
+                            if (!moveCharacterTowardsDirection(currentX, currentY, boundedX, boundedY, speed * 1.2)) {
+                                moveCharacterSafely(boundedX, boundedY, speed);
+                             }
+                         }
+                     }
+                 }
+             });
+
+             mapWrapper.addEventListener('touchend', function(e) {
+                 if (!isJoystickActive || !touchId) return;
+
+                 e.preventDefault();
+
+                 let touchEnded = false;
+                 for (let i = 0; i < e.changedTouches.length; i++) {
+                     if (e.changedTouches[i].identifier === touchId) {
+                         touchEnded = true;
+                         break;
+                     }
+                 }
+
+                 if (touchEnded) {
+                     joystick.classList.remove('active');
+                     isJoystickActive = false;
+                     touchId = null;
+
+                     joystickStick.style.transform = 'translate(-50%, -50%)';
+
+                 }
+             });
+
+             mapWrapper.addEventListener('touchcancel', function(e) {
+                 if (isJoystickActive) {
+                     e.preventDefault();
+                     joystick.classList.remove('active');
+                     isJoystickActive = false;
+                     touchId = null;
+                     joystickStick.style.transform = 'translate(-50%, -50%)';
+                 }
+             });
+
+         }
+
+     }
+
+     document.addEventListener('DOMContentLoaded', function() {
+
+        setTimeout(() => {
+            loadAndPlayMusic();
+        }, 100);
+
+        setTimeout(() => {
+            if (!isMusicPlaying) {
+                forceStartMusic();
+            }
+        }, 1000);
+
+        setTimeout(() => {
+            if (!isMusicPlaying) {
+                forceStartMusic();
+            }
+        }, 2000);
+
+        setTimeout(() => {
+            if (!isMusicPlaying) {
+                forceStartMusic();
+            }
+        }, 3000);
+
+        setTimeout(() => {
+            if (!isMusicPlaying) {
+                forceStartMusic();
+            }
+        }, 5000);
+
+        const mapImage = document.getElementById('mapImage');
+        const mapMaskImage = document.getElementById('mapMaskImage');
+
+         let resizeTimeout;
+         const handleResize = function() {
+             clearTimeout(resizeTimeout);
+             resizeTimeout = setTimeout(function() {
+                 if (gameState.character.x > 0 || gameState.character.y > 0) {
+                     updateCharacterPosition();
+                 }
+                  updateCollectiblePositions();
+             }, 100); // Debounce - 100ms bekle
+         };
+
+         window.addEventListener('resize', handleResize);
+
+        if (mapImage) {
+             if (window.ResizeObserver) {
+                 const resizeObserver = new ResizeObserver(function() {
+                     handleResize();
+                 });
+                 resizeObserver.observe(mapImage);
+                if (mapMaskImage) resizeObserver.observe(mapMaskImage);
+             }
+
+            const proceedInit = () => {
+
+                 cacheMapImageData();
+                 initializeGame();
+
+                 const tryLoadGameState = () => {
+                     if (itemElements.size === 0) {
+                         setTimeout(tryLoadGameState, 50);
+                         return;
+                     }
+                     if (!loadGameState()) {
+                         const startPoint = findPathStart();
+                         gameState.character.x = startPoint.x;
+                         gameState.character.y = startPoint.y;
+                         specialSequenceState = 'path';
+                         cyclePath = null;
+                         gameState.score = 0;
+                         collectedItems.length = 0; // const olduğu için içeriği temizliyoruz
+
+                         collectibleItems.forEach(item => {
+                             item.collected = false;
+                         });
+
+                         collectibleItems.forEach((item) => {
+                             const el = itemElements.get(item.id);
+                             if (el) {
+                                 el.style.display = 'block';
+                                 el.style.visibility = 'visible';
+                                 el.style.opacity = '1';
+                                 el.style.pointerEvents = 'auto';
+                             }
+                         });
+
+                         updateSpecialSequenceState(gameState.character.x, gameState.character.y);
+                         updateCollectiblePositions();
+                         updateCollectedItemsUI();
+                         updateCharacterPosition();
+                         updateDisplay();
+                     }
+                 };
+
+                 setTimeout(tryLoadGameState, 200);
+            };
+
+            if (mapMaskImage) {
+                if (mapMaskImage.complete) {
+                    proceedInit();
+                } else {
+
+                    mapMaskImage.addEventListener('load', proceedInit, { once: true });
+                }
+            } else if (mapImage.complete) {
+                proceedInit();
+            } else {
+
+                mapImage.addEventListener('load', proceedInit, { once: true });
+            }
+         } else {
+         }
+     });
+
+     function showCompletionEffects() {
+         if (completionAnimationActive) return;
+
+         const leftPanel = document.querySelector('.left-panel');
+         if (!leftPanel) return;
+
+         completionAnimationActive = true;
+
+         try {
+             const winSound = new Audio('sounds/level_complete.mp3');
+             winSound.volume = 0.6;
+             winSound.play().catch(() => {});
+         } catch(_) {}
+
+         animationTimeouts.forEach(timeout => clearTimeout(timeout));
+         animationTimeouts = [];
+
+         let popup = document.getElementById('completion-popup');
+         if (popup) {
+             popup.remove();
+         }
+
+         popup = document.createElement('div');
+         popup.id = 'completion-popup';
+         popup.className = 'completion-popup';
+
+        const clone = leftPanel.cloneNode(true);
+        clone.id = 'completion-popup-content';
+
+        const descriptionElement = clone.querySelector('.game-description');
+        if (descriptionElement) {
+            descriptionElement.remove();
+        }
+
+        popup.appendChild(clone);
+
+         document.body.appendChild(popup);
+
+         void popup.offsetHeight;
+
+         popup.classList.add('completion-popup-active');
+
+         const timeout1 = setTimeout(() => {
+             createCompletionAnimation();
+         }, 100);
+         animationTimeouts.push(timeout1);
+     }
+
+     function createCompletionAnimation() {
+         if (document.body.classList.contains('completion-bg-active')) {
+             return;
+         }
+
+         document.body.classList.add('completion-bg-active');
+
+         const centerX = window.innerWidth / 2;
+         const centerY = window.innerHeight / 2;
+         const colors = ['#1E3A8A', '#FF8A00', '#1E88E5', '#1565C0', '#FFA726', '#FB8C00', '#2E7D32', '#388E3C'];
+
+         const fragment = document.createDocumentFragment();
+         const confettiElements = [];
+         for (let i = 0; i < 50; i++) {
+             const angle = (i * 7.2) * Math.PI / 180;
+             const distance = 400 + Math.random() * 300;
+             const endX = centerX + Math.cos(angle) * distance;
+             const endY = centerY + Math.sin(angle) * distance;
+             const size = 10 + Math.random() * 8;
+             const c = document.createElement('div');
+             c.className = 'confetti';
+             c.style.left = centerX + 'px';
+             c.style.top = centerY + 'px';
+             c.style.width = size + 'px';
+             c.style.height = size + 'px';
+             c.style.marginLeft = (-size / 2) + 'px';
+             c.style.marginTop = (-size / 2) + 'px';
+             c.style.backgroundColor = colors[i % colors.length];
+             c.style.setProperty('--end-x', (endX - centerX) + 'px');
+             c.style.setProperty('--end-y', (endY - centerY) + 'px');
+             c.style.setProperty('--delay', (Math.random() * 0.2) + 's');
+             c.style.setProperty('--duration', (2.5 + Math.random() * 0.5) + 's');
+             fragment.appendChild(c);
+             confettiElements.push(c);
+         }
+         document.body.appendChild(fragment);
+
+         const confettiTimeout = setTimeout(() => {
+             if (!completionAnimationActive) return;
+             confettiElements.forEach(c => {
+                 if (c && c.parentNode) c.remove();
+             });
+         }, 4000);
+         animationTimeouts.push(confettiTimeout);
+
+         const starTimeout = setTimeout(() => {
+             if (!completionAnimationActive) return;
+
+             const starFragment = document.createDocumentFragment();
+             const starElements = [];
+             for (let i = 0; i < 30; i++) {
+                 const star = document.createElement('div');
+                 star.className = 'star-burst';
+                 const angle = (i * 12) * Math.PI / 180;
+                 const distance = 250 + Math.random() * 200;
+                 const endX = centerX + Math.cos(angle) * distance;
+                 const endY = centerY + Math.sin(angle) * distance;
+                 star.style.left = centerX + 'px';
+                 star.style.top = centerY + 'px';
+                 star.style.marginLeft = '-8px';
+                 star.style.marginTop = '-8px';
+                 star.style.setProperty('--end-x', (endX - centerX) + 'px');
+                 star.style.setProperty('--end-y', (endY - centerY) + 'px');
+                 starFragment.appendChild(star);
+                 starElements.push(star);
+             }
+             document.body.appendChild(starFragment);
+
+             const starRemoveTimeout = setTimeout(() => {
+                 if (!completionAnimationActive) return;
+                 starElements.forEach(star => {
+                     if (star && star.parentNode) star.remove();
+                 });
+             }, 3000);
+             animationTimeouts.push(starRemoveTimeout);
+         }, 500);
+         animationTimeouts.push(starTimeout);
+
+         const rainTimeout = setTimeout(() => {
+             if (!completionAnimationActive) return;
+
+             const rainFragment = document.createDocumentFragment();
+             const rainElements = [];
+             for (let j = 0; j < 15; j++) {
+                 const size = 8 + Math.random() * 6;
+                 const randomX = (Math.random() - 0.5) * 80;
+                 const c = document.createElement('div');
+                 c.className = 'confetti-rain';
+                 c.style.left = Math.random() * 100 + '%';
+                 c.style.top = '-20px';
+                 c.style.width = size + 'px';
+                 c.style.height = size + 'px';
+                 c.style.marginLeft = (-size / 2) + 'px';
+                 c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                 c.style.setProperty('--random-x', randomX + 'px');
+                 c.style.setProperty('--delay', (Math.random() * 0.3) + 's');
+                 c.style.setProperty('--duration', (3.5 + Math.random() * 1) + 's');
+                 rainFragment.appendChild(c);
+                 rainElements.push(c);
+             }
+             document.body.appendChild(rainFragment);
+
+             const rainRemoveTimeout = setTimeout(() => {
+                 if (!completionAnimationActive) return;
+                 rainElements.forEach(c => {
+                     if (c && c.parentNode) c.remove();
+                 });
+             }, 6000);
+             animationTimeouts.push(rainRemoveTimeout);
+         }, 800);
+         animationTimeouts.push(rainTimeout);
+     }
+
+     function clearCompletionEffects() {
+         completionAnimationActive = false;
+         animationTimeouts.forEach(timeout => clearTimeout(timeout));
+         animationTimeouts = [];
+         document.body.classList.remove('completion-bg-active');
+         document.querySelectorAll('.confetti, .confetti-rain, .star-burst').forEach(el => el.remove());
+         const popup = document.getElementById('completion-popup');
+         if (popup) {
+             popup.classList.remove('completion-popup-active');
+             const popupTimeout = setTimeout(() => {
+                 if (popup.parentNode) popup.remove();
+             }, 300);
+             animationTimeouts.push(popupTimeout);
+         }
+     }
+
+     function saveGameState() {
+         try {
+             const gameStateData = {
+                 character: {
+                     x: gameState.character.x,
+                     y: gameState.character.y
+                 },
+                 score: gameState.score,
+                 collectedItems: collectedItems,
+                 specialSequenceState: specialSequenceState,
+            cyclePath: cyclePath,
+            entryCycleCanExit: entryCycleCanExit,
+                 collectibleItems: collectibleItems.map(item => ({
+                     id: item.id,
+                     x: item.x,
+                     y: item.y,
+                     collected: item.collected
+                 }))
+             };
+             localStorage.setItem('tahliye_plani_state', JSON.stringify(gameStateData));
+         } catch (e) {
+         }
+     }
+
+     function loadGameState() {
+         try {
+             const savedState = localStorage.getItem('tahliye_plani_state');
+             if (!savedState) return false;
+
+             const gameStateData = JSON.parse(savedState);
+
+             if (itemElements.size === 0) {
+                 return false;
+             }
+
+             if (gameStateData.character && gameStateData.character.x !== undefined && gameStateData.character.y !== undefined) {
+                 gameState.character.x = gameStateData.character.x;
+                 gameState.character.y = gameStateData.character.y;
+             } else {
+                 return false;
+             }
+
+             gameState.score = gameStateData.score || 0;
+
+             collectedItems.length = 0;
+             if (gameStateData.collectedItems && gameStateData.collectedItems.length > 0) {
+                 collectedItems.push(...gameStateData.collectedItems);
+             }
+
+             specialSequenceState = gameStateData.specialSequenceState || 'path';
+             cyclePath = gameStateData.cyclePath || null;
+            entryCycleCanExit = gameStateData.entryCycleCanExit === true;
+
+             updateSpecialSequenceState(gameState.character.x, gameState.character.y);
+
+             if (gameStateData.collectibleItems && gameStateData.collectibleItems.length > 0) {
+                 collectibleItems.forEach((item) => {
+                     const savedItem = gameStateData.collectibleItems.find(si => si.id === item.id);
+                     if (savedItem) {
+                         item.collected = savedItem.collected === true;
+                     } else {
+                         item.collected = false;
+                     }
+                 });
+             } else {
+                 collectibleItems.forEach(item => {
+                     item.collected = false;
+                 });
+             }
+
+             collectibleItems.forEach((item) => {
+                 const el = itemElements.get(item.id);
+                 if (el) {
+                     if (item.collected === true) {
+                         el.style.display = 'none';
+                         el.style.visibility = 'hidden';
+                         el.style.opacity = '0';
+                         el.style.pointerEvents = 'none';
+                     } else {
+                         el.style.display = 'block';
+                         el.style.visibility = 'visible';
+                         el.style.opacity = '1';
+                         el.style.pointerEvents = 'auto';
+                     }
+                 }
+             });
+
+             updateCollectiblePositions();
+
+             updateCollectedItemsUI();
+
+             updateCharacterPosition();
+
+             updateDisplay();
+
+             return true;
+         } catch (e) {
+             return false;
+         }
+     }
+
+     let saveGameStateTimeout = null;
+     const throttledSaveGameState = () => {
+         if (saveGameStateTimeout) {
+             clearTimeout(saveGameStateTimeout);
+         }
+         saveGameStateTimeout = setTimeout(() => {
+             saveGameState();
+             saveGameStateTimeout = null;
+         }, 500); // 500ms throttle
+     };
+
+     const originalMoveCharacter = moveCharacter;
+     moveCharacter = function(x, y) {
+         originalMoveCharacter(x, y);
+         throttledSaveGameState();
+     };
+
+     const originalCollectCollectible = collectCollectible;
+     collectCollectible = function(item) {
+         originalCollectCollectible(item);
+         saveGameState(); // Eşya toplama anında kaydet (throttle yok)
+     };
+
+     updateDisplay();
+
+     window.addEventListener('load', function() {
+         setTimeout(() => {
+             if (!isMusicPlaying) {
+                 loadAndPlayMusic();
+             }
+         }, 500);
+     });
+
+     window.addEventListener('beforeunload', saveGameState);
+
+     setInterval(saveGameState, 5000); // Her 5 saniyede bir
+   </script>
+  <script src="libs/bootstrap/bootstrap.bundle.min.js" defer></script>
+  <script src="book-effect/jquery.js" defer></script>
+  <script src="book-effect/turn.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<!-- Created by Berkay Tonga 11.11.2025 -->
+<!-- BTNH1:QlROSDEjAEJlcmtheSBUb25nYSB8IDIwMjUtMTEtMTBUMTQ6MzA6MTdau9rD81j6P/w= | Berkay Tonga | 2025-11-10T14:30:17Z -->
+<html lang="tr">
+<head>
+    <meta name="author" content="Berkay Tonga">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AFAD Dergi</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                font-size: 18px;
+            }
+        }
+
+        .main-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 20px;
+            padding-bottom: 80px;
+            box-sizing: border-box;
+        }
+
+        .flipbook {
+            width: 1000px;
+            height: 707px; /* A4 çift sayfa görünüm (genişlik / 1.414) */
+            border-radius: 0;
+            position: relative;
+            /* background removed; keep container transparent */
+            /* margin-left removed; let Turn.js center/position */
+        }
+
+        .flipbook .page {
+            background: white;
+            display: block;
+            gap: 0;
+            border: none;
+            position: relative;
+            transform: translateZ(0);
+            will-change: transform;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.25), 0 6px 6px rgba(0,0,0,0.22);
+        }
+        
+        /* Tüm sayfalar için derinlik efektleri */
+        .flipbook .page[data-page] {
+            position: relative;
+        }
+        
+        
+        /* Sol kenar derinlik efekti - tek sayfa numaraları için (1, 3, 5, 7...) */
+        .flipbook .page[data-page="1"]::before,
+        .flipbook .page[data-page="3"]::before,
+        .flipbook .page[data-page="5"]::before,
+        .flipbook .page[data-page="7"]::before,
+        .flipbook .page[data-page="9"]::before,
+        .flipbook .page[data-page="11"]::before,
+        .flipbook .page[data-page="13"]::before,
+        .flipbook .page[data-page="15"]::before,
+        .flipbook .page[data-page="17"]::before,
+        .flipbook .page[data-page="19"]::before,
+        .flipbook .page[data-page="21"]::before,
+        .flipbook .page[data-page="23"]::before,
+        .flipbook .page[data-page="25"]::before,
+        .flipbook .page[data-page="27"]::before,
+        .flipbook .page[data-page="29"]::before,
+        .flipbook .page[data-page="31"]::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 20px;
+            bottom: 0;
+            background: linear-gradient(90deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.3) 20%, rgba(0,0,0,.15) 45%, rgba(0,0,0,.08) 70%, rgba(0,0,0,.03) 90%, transparent 100%);
+            pointer-events: none;
+            z-index: 3;
+        }
+        
+        /* Sağ kenar derinlik efekti - çift sayfa numaraları için (2, 4, 6, 8...) */
+        .flipbook .page[data-page="2"]::after,
+        .flipbook .page[data-page="4"]::after,
+        .flipbook .page[data-page="6"]::after,
+        .flipbook .page[data-page="8"]::after,
+        .flipbook .page[data-page="10"]::after,
+        .flipbook .page[data-page="12"]::after,
+        .flipbook .page[data-page="14"]::after,
+        .flipbook .page[data-page="16"]::after,
+        .flipbook .page[data-page="18"]::after,
+        .flipbook .page[data-page="20"]::after,
+        .flipbook .page[data-page="22"]::after,
+        .flipbook .page[data-page="24"]::after,
+        .flipbook .page[data-page="26"]::after,
+        .flipbook .page[data-page="28"]::after,
+        .flipbook .page[data-page="30"]::after,
+        .flipbook .page[data-page="32"]::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 20px;
+            bottom: 0;
+            background: linear-gradient(270deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.3) 20%, rgba(0,0,0,.15) 45%, rgba(0,0,0,.08) 70%, rgba(0,0,0,.03) 90%, transparent 100%);
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        /* Turn.js'in oluşturduğu baştaki boş sayfa: arka plan ve gölge olmasın */
+        .flipbook .page:not([data-page]),
+        .flipbook .page:empty {
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+        
+        /* Kitap görünümü için çift çizgiler - hover'da kaybolmaz */
+        /* Tek sayfalar (1,3,5,7...) - sağ kenarda çift çizgi */
+        .flipbook .page[data-page="1"]::after,
+        .flipbook .page[data-page="3"]::after,
+        .flipbook .page[data-page="5"]::after,
+        .flipbook .page[data-page="7"]::after,
+        .flipbook .page[data-page="9"]::after,
+        .flipbook .page[data-page="11"]::after,
+        .flipbook .page[data-page="13"]::after,
+        .flipbook .page[data-page="15"]::after,
+        .flipbook .page[data-page="17"]::after,
+        .flipbook .page[data-page="19"]::after,
+        .flipbook .page[data-page="21"]::after,
+        .flipbook .page[data-page="23"]::after,
+        .flipbook .page[data-page="25"]::after,
+        .flipbook .page[data-page="27"]::after,
+        .flipbook .page[data-page="29"]::after,
+        .flipbook .page[data-page="31"]::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 2px;
+            height: 100%;
+            background: 
+                linear-gradient(to right, transparent 0%, #ddd 50%, transparent 100%),
+                linear-gradient(to right, transparent 0%, #bbb 50%, transparent 100%);
+            background-size: 1px 100%, 1px 100%;
+            background-position: 0 0, 1px 0;
+            background-repeat: no-repeat;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        /* Çift sayfalar (2,4,6,8...) - sol kenarda çift çizgi */
+        .flipbook .page[data-page="2"]::before,
+        .flipbook .page[data-page="4"]::before,
+        .flipbook .page[data-page="6"]::before,
+        .flipbook .page[data-page="8"]::before,
+        .flipbook .page[data-page="10"]::before,
+        .flipbook .page[data-page="12"]::before,
+        .flipbook .page[data-page="14"]::before,
+        .flipbook .page[data-page="16"]::before,
+        .flipbook .page[data-page="18"]::before,
+        .flipbook .page[data-page="20"]::before,
+        .flipbook .page[data-page="22"]::before,
+        .flipbook .page[data-page="24"]::before,
+        .flipbook .page[data-page="26"]::before,
+        .flipbook .page[data-page="28"]::before,
+        .flipbook .page[data-page="30"]::before,
+        .flipbook .page[data-page="32"]::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 2px;
+            height: 100%;
+            background: 
+                linear-gradient(to right, transparent 0%, #ddd 50%, transparent 100%),
+                linear-gradient(to right, transparent 0%, #bbb 50%, transparent 100%);
+            background-size: 1px 100%, 1px 100%;
+            background-position: 0 0, 1px 0;
+            background-repeat: no-repeat;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        /* Boş sayfalarda derinlik efektini kaldır */
+        .flipbook .page:not([data-page])::before,
+        .flipbook .page:not([data-page])::after,
+        .flipbook .page:empty::before,
+        .flipbook .page:empty::after,
+        .flipbook .page:not([data-page]) .depth-right,
+        .flipbook .page:empty .depth-right {
+            display: none !important;
+        }
+
+        /* Turn.js default gölgelerini kullan (özelleştirilmiş kapatma kaldırıldı) */
+
+        /* İçerikte olası boşlukları kaldır */
+        .flipbook .page > * {
+            margin: 0;
+            padding: 0;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* Gizli güvenlik kuralı: eğer JS'den küçük sayfa numarası elemanı eklenirse gizle */
+        .flipbook .page small {
+            display: none !important;
+        }
+
+        .page canvas {
+            display: block;
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0;
+            pointer-events: none;
+            image-rendering: auto;
+            filter: none;
+            transform-origin: center center;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Özel kıvrım gölgesi kaldırıldı */
+
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 1.2em;
+            height: 100%;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+
+
+        .nav-btn {
+            background: #FF8A00;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s ease;
+            min-width: 100px;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-btn:hover:not(:disabled) {
+            background: #FF6A00;
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        }
+
+        .nav-btn:disabled {
+            background: #999;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Desktop: 2 pages side by side */
+        @media (min-width: 1025px) {
+            .flipbook {
+                width: 1200px;
+                height: 849px; /* 1200 / 1.414 ≈ 848.5 */
+            }
+        }
+
+        /* Tablet: Single page view */
+        @media (max-width: 1024px) {
+            .flipbook {
+                width: 90vw;
+                max-width: 800px;
+            }
+            
+            .main-container {
+                padding: 10px;
+            }
+            
+            /* Tablet'de arka sayfa görünür olsun */
+            .flipbook .page {
+                backface-visibility: visible;
+                -webkit-backface-visibility: visible;
+            }
+            
+            /* Tablet'de tüm kenarlarda çizgi - gölge yok */
+            .flipbook .page[data-page]::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 2px;
+                height: 100%;
+                background: 
+                    linear-gradient(to right, transparent 0%, #ddd 50%, transparent 100%),
+                    linear-gradient(to right, transparent 0%, #bbb 50%, transparent 100%);
+                background-size: 1px 100%, 1px 100%;
+                background-position: 0 0, 1px 0;
+                background-repeat: no-repeat;
+                z-index: 10;
+                pointer-events: none;
+            }
+            
+            .flipbook .page[data-page]::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 2px;
+                height: 100%;
+                background: 
+                    linear-gradient(to right, transparent 0%, #ddd 50%, transparent 100%),
+                    linear-gradient(to right, transparent 0%, #bbb 50%, transparent 100%);
+                background-size: 1px 100%, 1px 100%;
+                background-position: 0 0, 1px 0;
+                background-repeat: no-repeat;
+                z-index: 10;
+                pointer-events: none;
+            }
+            
+            .controls {
+                bottom: 10px;
+                gap: 10px;
+            }
+            
+            .nav-btn {
+                padding: 6px 12px;
+                font-size: 0.8em;
+                min-width: 80px;
+            }
+        }
+            
+        /* Mobile: Single page view */
+        @media (max-width: 768px) {
+            .flipbook {
+                width: 95vw;
+                max-width: 600px;
+            }
+            
+            /* Mobile'de arka sayfa görünür olsun */
+            .flipbook .page {
+                backface-visibility: visible;
+                -webkit-backface-visibility: visible;
+            }
+            
+            /* Mobile'de tüm kenarlarda çizgi - çift çizgi */
+            .flipbook .page[data-page]::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 2px;
+                height: 100%;
+                background: 
+                    linear-gradient(to right, transparent 0%, #ddd 50%, transparent 100%),
+                    linear-gradient(to right, transparent 0%, #bbb 50%, transparent 100%);
+                background-size: 1px 100%, 1px 100%;
+                background-position: 0 0, 1px 0;
+                background-repeat: no-repeat;
+                z-index: 10;
+                pointer-events: none;
+            }
+            
+            .flipbook .page[data-page]::after {
+                content: '';
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 2px;
+                height: 100%;
+                background: 
+                    linear-gradient(to right, transparent 0%, #ddd 50%, transparent 100%),
+                    linear-gradient(to right, transparent 0%, #bbb 50%, transparent 100%);
+                background-size: 1px 100%, 1px 100%;
+                background-position: 0 0, 1px 0;
+                background-repeat: no-repeat;
+                z-index: 10;
+                pointer-events: none;
+            }
+            
+            .controls {
+                bottom: 5px;
+                gap: 8px;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .nav-btn {
+                padding: 5px 10px;
+                font-size: 0.75em;
+                min-width: 70px;
+                gap: 3px;
+            }
+        }
+            
+        @media (max-width: 480px) {
+            .flipbook {
+                width: 98vw;
+                max-width: 400px;
+            }
+            
+            .main-container {
+                padding: 5px;
+            }
+            
+            .controls {
+                position: relative;
+                bottom: auto;
+                left: auto;
+                transform: none;
+                margin-top: 10px;
+                gap: 5px;
+            }
+            
+            .nav-btn {
+                padding: 4px 8px;
+                font-size: 0.7em;
+                min-width: 60px;
+                gap: 2px;
+            }
+            
+            .page canvas {
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
+
+        @media (max-width: 320px) {
+            .flipbook {
+                width: 100vw;
+                max-width: 300px;
+            }
+            
+            .nav-btn {
+                padding: 3px 6px;
+                font-size: 0.65em;
+                min-width: 50px;
+            }
+            
+        }
+        
+        /* Loading Ekranı */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .loading-content {
+            text-align: center;
+            color: #333;
+        }
+        
+        .spinner-large {
+            width: 80px;
+            height: 80px;
+            font-size: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: bounce 2.3s ease-in-out infinite;
+            margin: 0 auto 30px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes bounce {
+            0%, 10%, 20%, 30%, 40%, 50%, 60%, 70%, 80%, 90%, 100% { transform: translateY(0); }
+            45% { transform: translateY(-10px); }
+            55% { transform: translateY(-5px); }
+        }
+        
+        .loading-content h2 {
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+            color: #333;
+            text-shadow: none;
+        }
+        
+        .progress-bar {
+            width: 250px;
+            height: 6px;
+            background: #f0f0f0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 0 auto;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: #FF8A00;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        
+        /* Modern Overlay Modal */
+        .activity-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.25); /* Daha transparan arka plan */
+            backdrop-filter: blur(1px); /* Çok daha az bulanık */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .activity-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .activity-modal {
+            background: #ffffffde; /* Yeni arka plan rengi */
+            border-radius: 20px;
+            padding: 25px 35px; /* Daha küçük padding */
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+            transform: scale(0.8) translateY(20px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+            max-width: 300px; /* Daha küçük genişlik */
+            width: 90%;
+        }
+        
+        .activity-overlay.show .activity-modal {
+            transform: scale(1) translateY(0);
+        }
+        
+        .activity-modal h3 {
+            margin-bottom: 18px; /* Daha kısa mesafe */
+            margin-top: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .activity-modal h3 img {
+            max-width: 100%;
+            height: auto;
+            max-height: 60px; /* Maksimum yükseklik */
+            object-fit: contain; /* En-boy oranını korur */
+            display: block;
+        }
+        
+        .activity-button {
+            background: #1E3A8A; /* Sayfa numarası butonunun rengi */
+            color: white;
+            border: none;
+            padding: 8px 15px; /* Sayfa numarası butonunun padding'i */
+            border-radius: 12px; /* Sayfa numarası butonunun border-radius'u */
+            font-size: 0.85em; /* Sayfa numarası butonunun font-size'u */
+            font-weight: 600; /* Sayfa numarası butonunun font-weight'u */
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: none;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); /* Sayfa numarası butonunun box-shadow'u */
+            min-width: 100px; /* Sayfa numarası butonunun min-width'u */
+            text-align: center; /* Sayfa numarası butonunun text-align'u */
+        }
+        
+        .activity-button:hover {
+            background: #16306E; /* Sayfa numarası butonunun hover rengi */
+            transform: scale(1.05); /* Sayfa numarası butonunun hover efekti */
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25); /* Sayfa numarası butonunun hover box-shadow'u */
+        }
+        
+        .activity-button:active {
+            transform: scale(0.98);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Mobil uyumluluk */
+        @media (max-width: 768px) {
+            .activity-modal {
+                padding: 20px 25px; /* Daha küçük padding */
+                max-width: 280px; /* Daha küçük genişlik */
+            }
+            
+            .activity-modal h3 {
+                margin-bottom: 15px; /* Daha kısa mesafe */
+            }
+            
+            .activity-modal h3 img {
+                max-height: 50px; /* Mobilde daha küçük */
+            }
+            
+            .activity-button {
+                padding: 6px 12px; /* Sayfa numarası butonunun mobil padding'i */
+                font-size: 0.8em; /* Sayfa numarası butonunun mobil font-size'u */
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .activity-modal {
+                padding: 18px 22px; /* Daha küçük padding */
+                max-width: 260px; /* Daha küçük genişlik */
+            }
+            
+            .activity-modal h3 {
+                margin-bottom: 12px; /* Daha kısa mesafe */
+            }
+            
+            .activity-modal h3 img {
+                max-height: 45px; /* Küçük ekranlarda daha küçük */
+            }
+            
+            .activity-button {
+                padding: 5px 10px; /* Sayfa numarası butonunun küçük ekran padding'i */
+                font-size: 0.75em; /* Sayfa numarası butonunun küçük ekran font-size'u */
+            }
+        }
+        
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Loading Ekranı -->
+        <div id="loadingScreen" class="loading-screen">
+            <div class="loading-content">
+                <div class="spinner-large">📚</div>
+                <h2>Dergi Hazırlanıyor</h2>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flipbook" id="flipbook" style="display: none;">
+            <!-- PDF sayfaları buraya dinamik olarak eklenecek -->
+        </div>
+        
+
+        
+        <div class="controls">
+            <button class="nav-btn" id="prevBtn" title="Önceki Sayfa">
+                <span>◀</span>
+                <span>Önceki</span>
+            </button>
+            <button class="nav-btn" id="nextBtn" title="Sonraki Sayfa">
+                <span>Sonraki</span>
+                <span>▶</span>
+            </button>
+        </div>
+    </div>
+
+    <script src="libs/pdfjs/pdf.min.js" defer></script>
+    <script defer>
+        // PDF.js worker'ını hemen ayarla (script yüklendikten sonra)
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdfjs/pdf.worker.min.js';
+        }
+    </script>
+    <script src="book-effect/jquery.js" defer></script>
+    <script src="book-effect/turn.js" defer></script>
+    <script>
+
+        let currentPdf = null;
+        let totalPages = 0;
+        let currentPage = 1;
+        let isMobile = window.innerWidth <= 1024;
+        const renderingPages = new Set();
+        const MAX_RENDER_ATTEMPTS = 3;
+
+        // Detect Safari (WebKit) to apply safer defaults
+        const ua = navigator.userAgent || '';
+        const isSafariBrowser = /Safari/.test(ua) && !/Chrome|Chromium|Edge|OPR|Brave/.test(ua);
+        // Disable WebGL rendering on Safari to avoid GPU driver crashes
+        const USE_WEBGL_FOR_RENDER = !isSafariBrowser;
+
+        // Device capability detection for low-end throttling
+        const deviceMemory = navigator.deviceMemory || 4; // GB, undefined on some browsers
+        const hwConcurrency = navigator.hardwareConcurrency || 4; // logical cores
+        const isLowEndDevice = (deviceMemory <= 1.5) || (hwConcurrency <= 2) || (window.innerWidth <= 768);
+
+        // Limit concurrent renders to avoid memory/CPU spikes (especially on low-end devices)
+        let MAX_CONCURRENT_RENDER = isLowEndDevice ? 1 : 3;
+
+        // Default DPR cap (can be lowered for low-end or Safari)
+        const DPR_CAP_DEFAULT = isLowEndDevice ? 1 : (isSafariBrowser ? 1 : 2);
+        
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+        
+        // Ses efektleri için
+        let pageFlipSound = null;
+        let loadingSound = null;
+        let isMusicPlaying = false;
+        let musicStopped = false;
+
+        // Kullanıcı etkileşiminde müziği başlat (DOMContentLoaded içinde de ekleniyor)
+        
+        // Sayfa kapanırken müzik durumunu sıfırla (F5 için)
+        window.addEventListener('beforeunload', function() {
+            if (loadingSound) {
+                loadingSound.pause();
+                loadingSound.currentTime = 0;
+            }
+            isMusicPlaying = false;
+            // musicStopped'ı sıfırlama - sayfa yenilendiğinde sıfırlanacak
+        });
+        
+        // Sayfa yüklendiğinde otomatik başlat
+        document.addEventListener('DOMContentLoaded', function() {
+            // Müzik durumunu sıfırla (F5 için)
+            isMusicPlaying = false;
+            musicStopped = false;
+            
+            loadPageFlipSound();
+            loadLoadingSound();
+            
+            // Kullanıcı etkileşiminde müziği başlat
+            ['click', 'touchstart', 'keydown'].forEach(eventType => {
+                document.addEventListener(eventType, startLoadingMusic, { once: true });
+            });
+            
+            loadPDF();
+            
+            // 15 saniye sonra sabır mesajı göster
+            setTimeout(() => {
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen && loadingScreen.style.display !== 'none') {
+                    const loadingContent = document.querySelector('.loading-content h2');
+                    if (loadingContent) {
+                        loadingContent.textContent = 'Dergi Yükleniyor...';
+                        const loadingText = document.createElement('p');
+                        loadingText.style.marginTop = '10px';
+                        loadingText.style.fontSize = '14px';
+                        loadingText.style.color = '#666';
+                        loadingText.textContent = 'İnternet hızınıza göre yükleme sürebilir. Lütfen bekleyin...';
+                        loadingContent.parentNode.appendChild(loadingText);
+                    }
+                }
+            }, 15000);
+        });
+        
+        // Sayfa çevirme sesini yükle
+        function loadPageFlipSound() {
+            pageFlipSound = new Audio('sounds/page_flip.mp3');
+            pageFlipSound.preload = 'auto';
+            pageFlipSound.volume = 0.5; // Ses seviyesini ayarla
+        }
+        
+        // Yükleme müziğini yükle
+        function loadLoadingSound() {
+            loadingSound = new Audio('sounds/loading.mp3');
+            loadingSound.preload = 'auto';
+            loadingSound.loop = true;
+            loadingSound.volume = 0.5;
+        }
+        
+        // Yükleme müziğini başlat
+        function startLoadingMusic() {
+            if (!loadingSound || isMusicPlaying || musicStopped) return;
+            loadingSound.currentTime = 0;
+            loadingSound.play().then(() => {
+                isMusicPlaying = true;
+            }).catch(() => {});
+        }
+        
+        // fadeInMusic fonksiyonu kaldırıldı - direkt başlıyor
+        
+        // Ses seviyesini yavaşça azalt (fade out)
+        function fadeOutMusic() {
+            if (!loadingSound) return;
+            
+            const fadeDuration = 1500; // 1.5 saniye
+            const steps = 30; // 30 adım
+            const stepDuration = fadeDuration / steps;
+            const currentVolume = loadingSound.volume;
+            const volumeStep = currentVolume / steps;
+            
+            let currentStep = 0;
+            
+            const fadeInterval = setInterval(() => {
+                currentStep++;
+                loadingSound.volume = Math.max(currentVolume - (volumeStep * currentStep), 0);
+                
+                if (currentStep >= steps) {
+                    clearInterval(fadeInterval);
+                    // Müziği tamamen durdur
+                    stopLoadingMusic();
+                }
+            }, stepDuration);
+        }
+        
+        // Yükleme müziğini durdur
+        function stopLoadingMusic() {
+            if (loadingSound) {
+                loadingSound.pause();
+                loadingSound.currentTime = 0;
+                isMusicPlaying = false;
+                musicStopped = true; // Müzik durduruldu, tekrar başlatma
+            }
+        }
+        
+        // Sayfa çevirme sesini çal
+        function playPageFlipSound() {
+            if (pageFlipSound) {
+                pageFlipSound.currentTime = 0; // Sesi başa al
+                pageFlipSound.play().catch(() => {});
+            }
+        }
+
+        // Ekran boyutuna göre flipbook boyutlarını hesapla
+        function getFlipbookDimensions() {
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            
+            // A4 aspect ratio: mobil/tablet için tek sayfa (1.414), desktop için çift sayfa (1/1.414)
+            const isMobile = vw <= 1024;
+            const a4Ratio = isMobile ? 1.414 : (1 / 1.414);
+
+            // Target container widths by breakpoint
+            let targetWidth;
+            if (vw <= 320) targetWidth = Math.min(300, vw);
+            else if (vw <= 480) targetWidth = Math.min(400, Math.floor(vw * 0.98));
+            else if (vw <= 768) targetWidth = Math.min(600, Math.floor(vw * 0.95));
+            else if (vw <= 1024) targetWidth = Math.min(800, Math.floor(vw * 0.9));
+            else targetWidth = 1200;
+
+            // Compute height from width using A4 aspect ratio
+            // Mobil/tablet: tek sayfa (yükseklik = genişlik * 1.414)
+            // Desktop: çift sayfa (yükseklik = genişlik / 1.414)
+            let targetHeight = Math.floor(targetWidth * a4Ratio);
+
+            // Ensure it fits viewport height (leave space for controls ~100px)
+            const maxUsableHeight = vh - 120;
+            if (targetHeight > maxUsableHeight) {
+                targetHeight = Math.max(200, maxUsableHeight);
+                targetWidth = Math.floor(targetHeight / a4Ratio);
+            }
+
+            return { width: targetWidth, height: targetHeight };
+        }
+
+        // PDF dosyasını yükle
+        async function loadPDF() {
+            try {
+                startLoadingMusic();
+                
+                if (typeof pdfjsLib === 'undefined') {
+                    throw new Error('PDF.js kütüphanesi yüklenemedi.');
+                }
+                
+                const pdf = await pdfjsLib.getDocument({
+                    url: 'afad_dergi.pdf',
+                    cMapUrl: 'libs/pdfjs/cmaps/',
+                    cMapPacked: true,
+                    standardFontDataUrl: 'libs/pdfjs/standard_fonts/'
+                }).promise;
+                
+                currentPdf = pdf;
+                totalPages = pdf.numPages;
+                
+                // İlk 3 sayfayı yükle ve Turn.js'i başlat
+                await loadEntireMagazine();
+                
+                // Turn.js'i başlat
+                const dims = getFlipbookDimensions();
+                $("#flipbook").turn({
+                    width: dims.width,
+                    height: dims.height,
+                    autoCenter: false,
+                    acceleration: true,
+                    elevation: 30,
+                    gradients: true,
+                    display: isMobile ? 'single' : 'double',
+                    when: {
+                        turning: function(event, page, view) {
+                            currentPage = page;
+                            updateNavigationButtons();
+                            playPageFlipSound();
+                        },
+                        zooming: function(event, zoom, page) {
+                            updateCanvasQuality();
+                        }
+                    }
+                });
+                
+                updateNavigationButtons();
+                $("#flipbook").css('margin-left', '0');
+                
+                // Dergiyi göster
+                const loadingScreen = document.getElementById('loadingScreen');
+                const flipbook = document.getElementById('flipbook');
+                if (loadingScreen) loadingScreen.style.display = 'none';
+                if (flipbook) flipbook.style.display = 'block';
+                
+                fadeOutMusic();
+                
+            } catch (error) {
+                fadeOutMusic();
+                document.getElementById('loadingScreen').innerHTML = `
+                    <div class="loading-content">
+                        <h2>Hata Oluştu</h2>
+                        <p>PDF dosyası yüklenirken hata oluştu.</p>
+                        <button onclick="location.reload()" style="padding: 10px 20px; background: #FF8A00; color: white; border: none; border-radius: 5px; cursor: pointer;">Tekrar Dene</button>
+                    </div>
+                `;
+            }
+        }
+
+        // createBookPages fonksiyonu kaldırıldı - loadEntireMagazine tüm işi yapıyor
+
+        // Modern overlay modal ekleme fonksiyonu
+        function addActivityModal(pageElement, title, description, buttonText, targetUrl, imageSrc = 'img/bk_baslik.png') {
+            // Overlay oluştur
+            const overlay = document.createElement('div');
+            overlay.className = 'activity-overlay';
+            
+            // Modal içeriği
+            overlay.innerHTML = `
+                <div class="activity-modal">
+                    <h3><img src="${imageSrc}" alt="${title}"></h3>
+                    <button class="activity-button">${buttonText}</button>
+                </div>
+            `;
+            
+            // Buton tıklama olayı
+            const button = overlay.querySelector('.activity-button');
+            button.addEventListener('click', function() {
+                const w = window.screen && window.screen.availWidth ? window.screen.availWidth : window.innerWidth;
+                const h = window.screen && window.screen.availHeight ? window.screen.availHeight : window.innerHeight;
+                const features = `width=${w},height=${h},left=0,top=0,scrollbars=yes,resizable=yes`;
+                const win = window.open(targetUrl, '_blank', features);
+                if (win && typeof win.moveTo === 'function' && typeof win.resizeTo === 'function') {
+                    try { win.moveTo(0, 0); win.resizeTo(w, h); } catch (e) {}
+                }
+            });
+            
+            // Sayfa elementine ekle
+            pageElement.appendChild(overlay);
+            
+            // Modal'ı göster
+            setTimeout(() => {
+                overlay.classList.add('show');
+            }, 100);
+        }
+
+        // Sayfa içeriğini yükle (yüksek kalite)
+        async function loadPageContent(pageNumber, pageElement, isBackground = false, attempt = 1) {
+            const status = pageElement.dataset.status;
+            if (status === 'rendering' || status === 'loaded') return;
+            if (pageElement.querySelector('canvas') || renderingPages.has(pageNumber)) return;
+            
+            pageElement.dataset.status = 'rendering';
+            renderingPages.add(pageNumber);
+            
+            try {
+                const page = await currentPdf.getPage(pageNumber);
+                const dims = getFlipbookDimensions();
+                const viewport = page.getViewport({ scale: 1.0 });
+                const baseScale = Math.min(dims.width / viewport.width, dims.height / viewport.height);
+                const qualityScale = Math.max(baseScale, isBackground ? 1.05 : 1.2);
+                const finalViewport = page.getViewport({ scale: qualityScale });
+                
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                // Cap DPR based on device capabilities to avoid extremely large canvases
+                const rawDpr = window.devicePixelRatio || 1;
+                const dpr = Math.min(rawDpr, DPR_CAP_DEFAULT);
+                
+                canvas.height = finalViewport.height * dpr;
+                canvas.width = finalViewport.width * dpr;
+                canvas.style.width = '100%';
+                canvas.style.height = isMobile ? 'auto' : '100%';
+                canvas.style.display = 'block';
+                ctx.scale(dpr, dpr);
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                await page.render({
+                    canvasContext: ctx,
+                    viewport: finalViewport,
+                    enableWebGL: USE_WEBGL_FOR_RENDER,
+                    renderInteractiveForms: false
+                }).promise;
+                
+                pageElement.innerHTML = '';
+                pageElement.appendChild(canvas);
+                
+                // Mobil/tablet için arka sayfaya aynı sayfanın kopyasını ekle
+                if (isMobile) {
+                    const backCanvas = document.createElement('canvas');
+                    backCanvas.width = canvas.width;
+                    backCanvas.height = canvas.height;
+                    const backCtx = backCanvas.getContext('2d');
+                    backCtx.drawImage(canvas, 0, 0);
+                    backCanvas.style.transform = 'scaleX(-1)'; // Yatay olarak çevir
+                    backCanvas.style.position = 'absolute';
+                    backCanvas.style.top = '0';
+                    backCanvas.style.left = '0';
+                    backCanvas.style.width = '100%';
+                    backCanvas.style.height = '100%';
+                    backCanvas.style.zIndex = '-1';
+                    backCanvas.style.pointerEvents = 'none';
+                    pageElement.appendChild(backCanvas);
+                }
+                
+                // Modal ekle
+                if (pageNumber === 19) addActivityModal(pageElement, 'Resfebe', '', 'Etkinliğe git', 'resfebe.html', 'img/rf_baslik.PNG');
+                if (pageNumber === 23) addActivityModal(pageElement, 'Bilgisayarsız Kodlama', '', 'Etkinliğe git', 'bilgisayarsiz_kodlama.html');
+                if (pageNumber === 25) addActivityModal(pageElement, 'Cengel Bulmaca', '', 'Etkinliğe git', 'cengel_bulmaca.html', 'img/cb_baslik.png');
+                if (pageNumber === 29) addActivityModal(pageElement, 'Tahliye Planı', '', 'Etkinliğe git', 'tahliye_plani.html', 'img/tp_baslik.png');
+                
+                pageElement.dataset.status = 'loaded';
+                
+            } catch (error) {
+                if (attempt < MAX_RENDER_ATTEMPTS) {
+                    renderingPages.delete(pageNumber);
+                    pageElement.dataset.status = 'idle';
+                    await sleep(600 * attempt);
+                    return loadPageContent(pageNumber, pageElement, isBackground, attempt + 1);
+                }
+                
+                pageElement.innerHTML = `
+                    <div class="loading error">
+                        <div>Sayfa yüklenemedi</div>
+                        <button class="retry-btn">Tekrar Dene</button>
+                    </div>
+                `;
+                
+                const retryBtn = pageElement.querySelector('.retry-btn');
+                if (retryBtn) {
+                    retryBtn.addEventListener('click', () => {
+                        pageElement.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+                        pageElement.dataset.status = 'idle';
+                        loadPageContent(pageNumber, pageElement, isBackground, 1);
+                    });
+                }
+                
+                pageElement.dataset.status = 'error';
+            } finally {
+                renderingPages.delete(pageNumber);
+                if (pageElement.dataset.status === 'rendering') {
+                    pageElement.dataset.status = 'idle';
+                }
+            }
+        }
+
+        // Lazy loading kaldırıldı - tüm sayfalar önceden yüklü
+
+        // TÜM DERGİYİ YÜKLE - OPTİMİZE EDİLMİŞ
+        async function loadEntireMagazine() {
+            const flipbook = document.getElementById('flipbook');
+            let loadedCount = 0;
+            
+            // Progress bar güncelle
+            function updateProgress() {
+                loadedCount++;
+                const percent = Math.round((loadedCount / totalPages) * 100);
+                const progressFill = document.getElementById('progressFill');
+                if (progressFill) progressFill.style.width = percent + '%';
+                if (percent >= 100 && loadingSound && isMusicPlaying && !musicStopped) {
+                    fadeOutMusic();
+                }
+            }
+            
+            // Sayfa oluştur
+            function createPageElement(i) {
+                const pageEl = document.createElement('div');
+                pageEl.className = 'page';
+                pageEl.setAttribute('data-page', i);
+                pageEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+                flipbook.appendChild(pageEl);
+                return pageEl;
+            }
+            
+            // İlk 3 sayfayı öncelikli yükle
+            for (let i = 1; i <= Math.min(3, totalPages); i++) {
+                const pageEl = createPageElement(i);
+                await loadPageContent(i, pageEl, false);
+                updateProgress();
+            }
+            
+            // Diğer sayfaları sınırlı eşzamanlılık ile yükle (tarayıcı çökmesini önlemek için)
+            if (totalPages > 3) {
+                const queue = [];
+                for (let i = 4; i <= totalPages; i++) {
+                    const pageEl = createPageElement(i);
+                    queue.push({ num: i, el: pageEl });
+                }
+
+                const workers = [];
+                for (let w = 0; w < Math.min(MAX_CONCURRENT_RENDER, queue.length); w++) {
+                    workers.push((async function worker() {
+                        while (queue.length) {
+                            const job = queue.shift();
+                            try {
+                                await loadPageContent(job.num, job.el, true);
+                            } catch (e) {
+                                // hata yut
+                            }
+                            updateProgress();
+                            // Cihaz zayıfsa daha uzun bekle, aksi halde kısa bir nefes ver
+                            await sleep(isLowEndDevice ? 300 : 50);
+                        }
+                    })());
+                }
+
+                await Promise.all(workers);
+            }
+        }
+        
+
+
+        // Canvas kalitesini güncelle (optimize edilmiş)
+        function updateCanvasQuality() {
+            const canvases = document.querySelectorAll('.page canvas');
+            canvases.forEach(canvas => {
+                // Sabit kalite ayarları - hover etkilerini kaldır
+                canvas.style.imageRendering = 'auto';
+                canvas.style.filter = 'none';
+            });
+        }
+
+        // Navigasyon fonksiyonları
+        function navigatePage(direction) {
+            const book = $("#flipbook");
+            if (direction === -1) {
+                book.turn('previous');
+            } else if (direction === 1) {
+                book.turn('next');
+            }
+            playPageFlipSound();
+        }
+
+        function updateNavigationButtons() {
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+        }
+
+
+        // Event listeners
+        document.getElementById('prevBtn').addEventListener('click', () => navigatePage(-1));
+        document.getElementById('nextBtn').addEventListener('click', () => navigatePage(1));
+        
+        
+
+        // Klavye kontrolleri
+        document.addEventListener('keydown', function(event) {
+            switch(event.key) {
+                case 'ArrowLeft':
+                    event.preventDefault();
+                    navigatePage(-1);
+                    break;
+                case 'ArrowRight':
+                    event.preventDefault();
+                    navigatePage(1);
+                    break;
+                case '+':
+                case '=':
+                    event.preventDefault();
+                    $("#flipbook").turn('zoom', 1.5);
+                    updateCanvasQuality();
+                    break;
+                case '-':
+                    event.preventDefault();
+                    $("#flipbook").turn('zoom', 0.8);
+                    updateCanvasQuality();
+                    break;
+                case '0':
+                    event.preventDefault();
+                    $("#flipbook").turn('zoom', 1);
+                    updateCanvasQuality();
+                    break;
+            }
+        });
+
+        // Pencere boyutu değiştiğinde yeniden boyutlandır
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                const newIsMobile = window.innerWidth <= 1024;
+                if (newIsMobile !== isMobile) {
+                    isMobile = newIsMobile;
+                    location.reload(); // Display mode değiştiğinde sayfayı yenile
+                } else {
+                    const dimensions = getFlipbookDimensions();
+                    const book = $("#flipbook");
+                    book.turn('display', isMobile ? 'single' : 'double');
+                    book.turn('size', dimensions.width, dimensions.height);
+                    // Olası inline margin'i temizle
+                    book.css('margin-left', '0');
+                }
+            }, 250);
+        });
+    </script>
+</body>
+</html>
+
+

@@ -1,0 +1,2122 @@
+<!DOCTYPE html>
+
+<html lang="tr">
+<head>
+    <meta name="author" content="Berkay Tonga">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Çengel Bulmaca</title>
+  <link href="libs/bootstrap/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="libs/fontawesome/all.min.css">
+  <link rel="stylesheet" href="css/cengel_bulmaca.css">
+</head>
+<body>
+  <div class="container-fluid game-container">
+    <div class="row align-items-center" style="margin: 0; width: 100%;">
+      <div class="col-lg-3 col-md-12">
+        <div class="left-panel">
+          <img src="img/cb_bilgi.png" alt="Çengel Bulmaca" class="title-image">
+
+          <div id="leftFore" class="leftFore">
+            <div class="game-info">
+              <div class="score badge bg-warning text-dark"><span id="stars"></span></div>
+            </div>
+
+            <div style="display: flex; gap: 8px; flex-direction: column;">
+              <button class="btn btn-danger btn-sm" onclick="oyunuSifirla()" style="width: 100%; font-size: 0.9em;">Baştan Başla</button>
+              <div style="display: flex; gap: 8px;">
+                <button id="oncekiBtn" class="btn btn-warning btn-sm" onclick="oncekiAsama()" style="flex: 1; font-size: 0.9em;">Önceki</button>
+                <button id="sonrakiBtn" class="btn btn-warning btn-sm" onclick="sonrakiAsama()" style="flex: 1; font-size: 0.9em;">Sonraki</button>
+              </div>
+            </div>
+
+            <div id="message" class="message alert" style="display: none;"></div>
+
+            <div class="collected-items">
+              <h4>Bulunan Kelimeler:</h4>
+              <div id="collectedItemsList" class="collected-items-list">
+                <div class="no-items">Henüz kelime bulunmadı</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6 col-md-12 d-flex justify-content-center">
+        <div class="game-area">
+          <div class="grid-container">
+            <div id="grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-3 col-md-12">
+        <div class="clues-panel">
+          <div id="clues-content">
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                if (!document.getElementById('custom-cursor')) {
+                    const el = document.createElement('div');
+                    el.id = 'custom-cursor';
+                    document.body.appendChild(el);
+                }
+                const cursorEl = document.getElementById('custom-cursor');
+                if (!cursorEl) return;
+                let visible = true;
+                function getHotspot() {
+                    const root = getComputedStyle(document.documentElement);
+                    const x = parseFloat(root.getPropertyValue('--hotspot-x')) || 8;
+                    const y = parseFloat(root.getPropertyValue('--hotspot-y')) || 4;
+                    return { x, y };
+                }
+                function move(e) {
+                    if (!visible) { cursorEl.style.display = 'block'; visible = true; }
+                    const hotspot = getHotspot();
+                    cursorEl.style.transform = 'translate(' + (e.clientX - hotspot.x) + 'px,' + (e.clientY - hotspot.y) + 'px)';
+                }
+                cursorEl.style.display = 'block';
+                document.addEventListener('mousemove', function initMove(e) {
+                    move(e);
+                    document.removeEventListener('mousemove', initMove);
+                }, { once: true });
+                document.addEventListener('mousemove', move);
+                document.addEventListener('mouseleave', function(){ cursorEl.style.display = 'none'; visible = false; });
+                document.addEventListener('mouseenter', function(){ cursorEl.style.display = 'block'; visible = true; });
+                document.addEventListener('touchstart', function(){ if (cursorEl) cursorEl.style.display = 'none'; }, { passive: true });
+            } catch(_) {  }
+        });
+    })();
+
+    let backgroundMusic = null;
+    let isMusicPlaying = false;
+    let musicInitialized = false;
+
+    function loadAndPlayMusic() {
+        try {
+            backgroundMusic = new Audio('sounds/cb_music.mp3');
+            backgroundMusic.preload = 'auto';
+            backgroundMusic.loop = true;
+            backgroundMusic.volume = 0.3; // %30 ses seviyesi
+
+            backgroundMusic.addEventListener('error', function(e) {
+            });
+
+            backgroundMusic.load();
+
+        } catch (error) {
+        }
+    }
+
+    function startMusic() {
+        if (backgroundMusic && !isMusicPlaying) {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play().then(() => {
+                isMusicPlaying = true;
+                musicInitialized = true;
+            }).catch(e => {
+            });
+        }
+    }
+
+    function forceStartMusic() {
+        if (backgroundMusic) {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play().catch(e => {  });
+        }
+    }
+
+    document.addEventListener('visibilitychange', function() {
+        if (backgroundMusic && musicInitialized) {
+            if (document.hidden) {
+                backgroundMusic.pause();
+                isMusicPlaying = false;
+            } else {
+                if (!isMusicPlaying) {
+                    backgroundMusic.play().then(() => {
+                        isMusicPlaying = true;
+                    }).catch(e => {
+                    });
+                }
+            }
+        }
+    });
+
+    document.addEventListener('click', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+
+    document.addEventListener('keydown', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+
+    document.addEventListener('mousemove', function() {
+        if (backgroundMusic && !isMusicPlaying) {
+            startMusic();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAndPlayMusic();
+    });
+
+    const boyut = 14;
+    const tablo = [];
+    const tabloDurumlari = {
+      1: [], // 1. aşama tablo durumu
+      2: [], // 2. aşama tablo durumu
+      3: []  // 3. aşama tablo durumu
+    };
+    const bulunan = new Set();
+    const bulunanDurumlari = {
+      1: new Set(), // 1. aşama bulunan kelimeler
+      2: new Set(), // 2. aşama bulunan kelimeler
+      3: new Set()  // 3. aşama bulunan kelimeler
+    };
+    const visibleCells = new Set();
+    const wordSlots = [];
+    let lastDirection = null;
+    let lastPosition = null;
+    let currentWordDirection = null; // Mevcut kelimenin yönünü sakla
+    let originalKontrolEt = null; // kontrolEt fonksiyonunun orijinal hali (wrap edilmeden önce)
+
+    let showSayiMarkers = true;
+
+    const eskiSayiMappings = [
+      { slotIndex: 7, letterIndex: 3, sayiIndex: 1 }, // DOĞAKAYNAKLI 4. harf (A)
+      { slotIndex: 1, letterIndex: 0, sayiIndex: 2 }, // FAYHATTI 1. harf (F)
+      { slotIndex: 2, letterIndex: 5, sayiIndex: 3 }, // ATEŞÇEMBERİ 6. harf (Ç)
+      { slotIndex: 4, letterIndex: 6, sayiIndex: 4 }  // EPİSANTR 7. harf (T)
+    ];
+
+    const yeniSayiMappings = [
+      { slotIndex: 6, letterIndex: 2, sayiIndex: 1 }, // TAHLİYE 3. harf (H) -> H
+      { slotIndex: 1, letterIndex: 3, sayiIndex: 7 }, // SİSMİKDALGA 4. harf (M) -> M (yeniKelimeler'de 1. index, ilk halindeki sayiIndex: 7)
+      { slotIndex: 2, letterIndex: 4, sayiIndex: 2 }, // TOPLANMAALANI 5. harf (A) -> A (yeniKelimeler'de 2. index, ilk halindeki sayiIndex: 2)
+      { slotIndex: 3, letterIndex: 4, sayiIndex: 4 }, // ARTÇIŞOK 5. harf (Ş) -> I
+      { slotIndex: 4, letterIndex: 6, sayiIndex: 5 }, // RICHTER 7. harf (R) -> R
+      { slotIndex: 0, letterIndex: 6, sayiIndex: 6 }, // HATAAYIKLAMA 7. harf (K) -> I
+      { slotIndex: 7, letterIndex: 4, sayiIndex: 3 }  // ENKAZALANI 5. harf (A) -> Z (yeniKelimeler'de 7. index, ilk halindeki sayiIndex: 3)
+    ];
+
+    const ucuncuSayiMappings = [
+      { slotIndex: 3, letterIndex: 7, sayiIndex: 1 }, // ODAKNOKTASI 8. harf (T) -> TEDBİR 1. harf
+      { slotIndex: 1, letterIndex: 3, sayiIndex: 2 }, // ÖNLEM 4. harf (E) -> TEDBİR 2. harf
+      { slotIndex: 0, letterIndex: 6, sayiIndex: 3 }, // KURUGIDA 7. harf (D) -> TEDBİR 3. harf
+      { slotIndex: 6, letterIndex: 3, sayiIndex: 4 }, // TATBİKAT 4. harf (B) -> TEDBİR 4. harf
+      { slotIndex: 7, letterIndex: 6, sayiIndex: 5 }, // TSUNAMİ 7. harf (İ) -> TEDBİR 5. harf
+      { slotIndex: 5, letterIndex: 5, sayiIndex: 6 }  // YILDIRIM 6. harf (R) -> TEDBİR 6. harf
+    ];
+
+    let sayiMappings = eskiSayiMappings;
+
+    let oyunSeviyesi = 1;
+
+    const eskiSariKutuCells = [
+      [11, 14], [12, 14], [13, 14], [14, 14]
+    ];
+
+    const yeniSariKutuCells = [
+      [8, 14], [9, 14], [10, 14], [11, 14], [12, 14], [13, 14], [14, 14]
+    ];
+
+    const ucuncuSariKutuCells = [
+      [9, 14], [10, 14], [11, 14], [12, 14], [13, 14], [14, 14]
+    ];
+
+    let sariKutuCells = eskiSariKutuCells;
+
+    const eskiSonucHarfleri = ["", "", "", ""];
+
+    const yeniSonucHarfleri = ["", "", "", "", "", "", ""];
+
+    const ucuncuSonucHarfleri = ["", "", "", "", "", ""];
+
+    let sonucHarfleri = eskiSonucHarfleri;
+
+    function addRange(xs, ys) {
+      if (Array.isArray(xs)) {
+        for (const x of xs) addRange(x, ys);
+        return;
+      }
+      if (Array.isArray(ys)) {
+        for (const y of ys) addRange(xs, y);
+        return;
+      }
+      visibleCells.add(`${xs},${ys}`);
+    }
+
+    function normalize(str) {
+      return (str || '').toUpperCase()
+        .replace(/Ş/g,'S').replace(/Ğ/g,'G').replace(/Ç/g,'C')
+        .replace(/[^A-ZÇĞİÖŞÜ]/g,'');
+    }
+
+    function buildVisibleCells() {
+      visibleCells.clear();
+      wordSlots.forEach(slot => {
+        if (slot.cells && slot.cells.length > 0) {
+          slot.cells.forEach(cell => {
+            addRange(cell[0], cell[1]);
+          });
+        }
+      });
+    }
+
+    function tabloyuGoster() {
+      const tabloDiv = document.getElementById("grid");
+      tabloDiv.innerHTML = "";
+
+      for (let r = 0; r < 15; r++) {
+        for (let c = 0; c < 15; c++) {
+          const key = `${c},${r}`;
+          const hucre = document.createElement("div");
+          hucre.className = 'cell';
+          hucre.dataset.satir = r;
+          hucre.dataset.sutun = c;
+          hucre.dataset.x = c;
+          hucre.dataset.y = r;
+          hucre.style.gridColumn = (c + 1).toString();
+          hucre.style.gridRow = (r + 1).toString();
+
+          if (visibleCells.has(key)) {
+            hucre.classList.add('active');
+          }
+
+          if (r === 14) {
+            if (sariKutuCells === yeniSariKutuCells && c >= 8 && c <= 14) {
+              hucre.classList.add('active');
+              hucre.classList.add('sari-kutu');
+              hucre.style.backgroundColor = '#ffc107';
+              hucre.style.borderColor = '#ffc107';
+            } else if (sariKutuCells === ucuncuSariKutuCells && c >= 9 && c <= 14) {
+              hucre.classList.add('active');
+              hucre.classList.add('sari-kutu');
+              hucre.style.backgroundColor = '#ffc107';
+              hucre.style.borderColor = '#ffc107';
+            } else if (sariKutuCells === eskiSariKutuCells && c >= 11 && c <= 14) {
+              hucre.classList.add('active');
+              hucre.classList.add('sari-kutu');
+              hucre.style.backgroundColor = '#ffc107';
+              hucre.style.borderColor = '#ffc107';
+            }
+          }
+
+          if (hucre.classList.contains('active')) {
+            const input = document.createElement('input');
+            input.maxLength = 1;
+            input.value = (tablo[r] && tablo[r][c] ? tablo[r][c] : '').toUpperCase();
+
+            input.addEventListener('input', (e) => {
+              let val = (e.target.value || '');
+              val = val.replace(/i/g, 'İ').replace(/ı/g, 'I').toUpperCase();
+              val = val.replace(/[^A-ZÇĞİÖŞÜ]/g, '');
+              e.target.value = val;
+
+              if (tablo[r]) {
+                tablo[r][c] = val;
+              }
+
+              kontrolEt();
+
+              if (val.length === 1) {
+                setTimeout(() => {
+                  let isHorizontal = currentWordDirection;
+
+                  if (isHorizontal === null) {
+                    const currentWordSlot = wordSlots.find(slot =>
+                      slot.cells.some(([wx, wy]) => wx === c && wy === r)
+                    );
+
+                    if (currentWordSlot) {
+                      isHorizontal = currentWordSlot.cells.length > 1 &&
+                                   currentWordSlot.cells[0][0] !== currentWordSlot.cells[1][0];
+
+                      currentWordDirection = isHorizontal;
+                    }
+                  }
+
+                  if (isHorizontal !== null) {
+                    let nextX = c, nextY = r;
+                    if (isHorizontal) {
+                      nextX = c + 1; // Sağa git
+                    } else {
+                      nextY = r + 1; // Aşağı git
+                    }
+
+                    const nextCell = document.querySelector(`[data-x="${nextX}"][data-y="${nextY}"]`);
+
+                    if (nextCell) {
+                      const nextInput = nextCell.querySelector('input');
+                      if (nextInput) {
+                        nextInput.focus();
+                        nextInput.select();
+                      }
+                    }
+                  } else {
+                    const nextInput = findNextEmptyInput(r, c);
+                    if (nextInput) {
+                      nextInput.focus();
+                    }
+                  }
+                }, 50);
+              }
+            });
+
+            input.addEventListener('keydown', (e) => {
+              if (e.key === 'Backspace' && e.target.value === '') {
+                e.preventDefault();
+
+                let isHorizontal = currentWordDirection;
+
+                if (isHorizontal === null) {
+                  const currentWordSlot = wordSlots.find(slot =>
+                    slot.cells.some(([wx, wy]) => wx === c && wy === r)
+                  );
+
+                  if (currentWordSlot) {
+                    isHorizontal = currentWordSlot.cells.length > 1 &&
+                                 currentWordSlot.cells[0][0] !== currentWordSlot.cells[1][0];
+                  }
+                }
+
+                if (isHorizontal !== null) {
+                  let prevX = c, prevY = r;
+                  if (isHorizontal) {
+                    prevX = c - 1; // Sola git
+                  } else {
+                    prevY = r - 1; // Yukarı git
+                  }
+
+                  const prevCell = document.querySelector(`[data-x="${prevX}"][data-y="${prevY}"]`);
+                  if (prevCell) {
+                    const prevInput = prevCell.querySelector('input');
+                    if (prevInput) {
+                      prevInput.value = '';
+                      if (tablo[prevY]) {
+                        tablo[prevY][prevX] = '';
+                      }
+                      prevInput.focus();
+                      kontrolEt();
+                    }
+                  }
+                } else {
+                  const prevInput = findPreviousInput(r, c);
+                  if (prevInput) {
+                    prevInput.value = '';
+                    const prevRow = parseInt(prevInput.closest('.cell').dataset.y);
+                    const prevCol = parseInt(prevInput.closest('.cell').dataset.x);
+                    if (tablo[prevRow]) {
+                      tablo[prevRow][prevCol] = '';
+                    }
+                    prevInput.focus();
+                    kontrolEt();
+                  }
+                }
+              }
+            });
+
+            hucre.appendChild(input);
+            hucre.addEventListener('click', (e) => {
+              let clickedWordSlot = wordSlots.find(slot =>
+                slot.cells.length > 0 && slot.cells[0][0] === c && slot.cells[0][1] === r
+              );
+
+              if (!clickedWordSlot) {
+                clickedWordSlot = wordSlots.find(slot =>
+                  slot.cells.some(([wx, wy]) => wx === c && wy === r)
+                );
+              }
+
+              if (clickedWordSlot) {
+                const isHorizontal = clickedWordSlot.cells.length > 1 &&
+                                   clickedWordSlot.cells[0][0] !== clickedWordSlot.cells[1][0];
+                currentWordDirection = isHorizontal;
+              }
+
+              input.focus();
+            });
+
+            const mappingForCell = sayiMappings.find(m => {
+              const cell = (wordSlots[m.slotIndex] && wordSlots[m.slotIndex].cells[m.letterIndex]) || null;
+              return cell && cell[0] === c && cell[1] === r;
+            });
+            if (mappingForCell && showSayiMarkers) {
+              const sayiDiv = document.createElement('div');
+              sayiDiv.className = 'sayi-number';
+              const displayIndex = mappingForCell.displaySayiIndex || mappingForCell.sayiIndex;
+              sayiDiv.style.backgroundImage = `url('img/cb_sayi${displayIndex}.png')`;
+              hucre.appendChild(sayiDiv);
+
+              hucre.classList.add('sayi-bg');
+            }
+
+            if (!showSayiMarkers && sayiMappings === yeniSayiMappings) {
+              const mappingForCell = yeniSayiMappings.find(m => {
+                const cell = (wordSlots[m.slotIndex] && wordSlots[m.slotIndex].cells[m.letterIndex]) || null;
+                return cell && cell[0] === c && cell[1] === r;
+              });
+              if (mappingForCell) {
+                hucre.classList.add('sayi-bg');
+
+                const sayiDiv = document.createElement('div');
+                sayiDiv.className = 'sayi-number';
+                const displayIndex = mappingForCell.displaySayiIndex || mappingForCell.sayiIndex;
+                sayiDiv.style.backgroundImage = `url('img/cb_sayi${displayIndex}.png')`;
+                hucre.appendChild(sayiDiv);
+              }
+            }
+
+            if (!showSayiMarkers && sayiMappings === ucuncuSayiMappings) {
+              const mappingForCell = ucuncuSayiMappings.find(m => {
+                const cell = (wordSlots[m.slotIndex] && wordSlots[m.slotIndex].cells[m.letterIndex]) || null;
+                return cell && cell[0] === c && cell[1] === r;
+              });
+              if (mappingForCell) {
+                hucre.classList.add('sayi-bg');
+
+                const sayiDiv = document.createElement('div');
+                sayiDiv.className = 'sayi-number';
+                const displayIndex = mappingForCell.displaySayiIndex || mappingForCell.sayiIndex;
+                sayiDiv.style.backgroundImage = `url('img/cb_sayi${displayIndex}.png')`;
+                hucre.appendChild(sayiDiv);
+              }
+            }
+          }
+
+          tabloDiv.appendChild(hucre);
+        }
+      }
+    }
+
+    function kontrolEt() {
+      const matchedByCell = new Map();
+      const foundWords = new Set();
+      const matchedSlots = new Set();
+
+      wordSlots.forEach((slot, index) => {
+        const letters = slot.cells.map(([x,y]) => {
+          if (y >= 0 && y < 15 && x >= 0 && x < 15 && tablo[y] && tablo[y][x] !== undefined) {
+            const letter = normalize(tablo[y][x]);
+            return letter;
+          }
+          return '';
+        });
+
+        const current = letters.join('');
+        const targetOk = Array.isArray(slot.answer) ? slot.answer.map(normalize) : [normalize(slot.answer)];
+        const full = letters.every(l => l && l.length === 1);
+        const match = full && targetOk.includes(current);
+
+        if (match) {
+          const turkishWord = slot.answer.find(word => normalize(word) === current) || slot.answer[0];
+          foundWords.add(turkishWord);
+          matchedSlots.add(index);
+
+          slot.cells.forEach(([x,y]) => {
+            matchedByCell.set(`${y},${x}`, true);
+          });
+        }
+      });
+
+      const newlyFoundWords = [];
+      const newlyFoundSlots = [];
+      foundWords.forEach(word => {
+        if (!bulunan.has(word)) {
+          bulunan.add(word);
+          newlyFoundWords.push(word);
+        }
+      });
+
+      if (newlyFoundWords.length > 0) {
+        kelimeListesiniGuncelle(newlyFoundWords);
+      }
+
+      guncelleYildizlar();
+
+      guncelleSariKutuHarfleri(matchedSlots, newlyFoundWords.length === 0);
+
+      newlyFoundWords.forEach((word, wordIndex) => {
+        const isLastWord = wordIndex === newlyFoundWords.length - 1;
+        showWordFoundAnimation(word, () => {
+          highlightKeyLetter(word, matchedSlots);
+
+          if (isLastWord) {
+            const tumKelimelerBulundu = wordSlots.length > 0 && wordSlots.every((slot, index) => {
+              const letters = slot.cells.map(([x, y]) => {
+                if (y >= 0 && y < 15 && x >= 0 && x < 15 && tablo[y] && tablo[y][x] !== undefined) {
+                  return normalize(tablo[y][x]);
+                }
+                return '';
+              });
+              const current = letters.join('');
+              const targetOk = Array.isArray(slot.answer) ? slot.answer.map(normalize) : [normalize(slot.answer)];
+              const full = letters.every(l => l && l.length === 1);
+              return full && targetOk.includes(current);
+            });
+
+            const hepsiDolu = sonucHarfleri.every(h => h && h.length === 1);
+
+            if (tumKelimelerBulundu && hepsiDolu && !tamamlananAsamalar[oyunSeviyesi]) {
+              endGame();
+            }
+          }
+        });
+      });
+
+      document.querySelectorAll('.cell').forEach(el => {
+        const y = el.getAttribute('data-satir');
+        const x = el.getAttribute('data-sutun');
+        if (y !== null && x !== null) {
+          const on = matchedByCell.get(`${y},${x}`) === true;
+          el.classList.toggle('found', on);
+        }
+      });
+
+      if (foundWords.size > 0 && newlyFoundWords.length === 0) {
+        kelimeListesiniGuncelle();
+      }
+    }
+
+    function guncelleYildizlar() {
+      const starsElement = document.getElementById('stars');
+      if (!starsElement) return;
+
+      const bulunanKelimeSayisi = bulunan.size;
+
+      const chips = [];
+      for (let i = 0; i < bulunanKelimeSayisi; i++) chips.push('<span class="star-chip">⭐</span>');
+      starsElement.innerHTML = chips.join(' ');
+    }
+
+    function guncelleSariKutuHarfleri(matchedSlots, checkGameEnd = true) {
+      sayiMappings.forEach(m => {
+        if (matchedSlots.has(m.slotIndex)) {
+          const [x, y] = wordSlots[m.slotIndex].cells[m.letterIndex];
+          const cellEl = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+          const input = cellEl ? cellEl.querySelector('input') : null;
+          const val = (input && input.value) ? input.value.toUpperCase() : '';
+          sonucHarfleri[m.sayiIndex - 1] = val;
+        }
+      });
+
+      sariKutuCells.forEach(([x, y], idx) => {
+        const cellEl = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+        if (!cellEl) return;
+        const input = cellEl.querySelector('input');
+        if (input) {
+          input.value = sonucHarfleri[idx] || '';
+          input.readOnly = true;
+        }
+      });
+
+      const hepsiDolu = sonucHarfleri.every(h => h && h.length === 1);
+      sariKutuCells.forEach(([x, y]) => {
+        const cellEl = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+        if (cellEl) {
+          cellEl.classList.toggle('completed', hepsiDolu);
+        }
+      });
+
+      if (checkGameEnd) {
+        const tumKelimelerBulundu = wordSlots.length > 0 && wordSlots.every((slot, index) => {
+          const letters = slot.cells.map(([x, y]) => {
+            if (y >= 0 && y < 15 && x >= 0 && x < 15 && tablo[y] && tablo[y][x] !== undefined) {
+              return normalize(tablo[y][x]);
+            }
+            return '';
+          });
+          const current = letters.join('');
+          const targetOk = Array.isArray(slot.answer) ? slot.answer.map(normalize) : [normalize(slot.answer)];
+          const full = letters.every(l => l && l.length === 1);
+          return full && targetOk.includes(current);
+        });
+
+        if (tumKelimelerBulundu && hepsiDolu) {
+          if (!tamamlananAsamalar[oyunSeviyesi]) {
+            endGame();
+          }
+        }
+      }
+    }
+
+    function showWordFoundAnimation(word, callback) {
+      const correctSound = new Audio('sounds/bk_correct.mp3');
+      correctSound.volume = 0.5; // %50 ses seviyesi
+      correctSound.play().catch(() => {});
+
+      const popup = document.createElement('div');
+      popup.className = 'word-popup';
+      popup.textContent = word;
+      popup.style.position = 'fixed';
+
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+
+      popup.style.left = centerX + 'px';
+      popup.style.top = centerY + 'px';
+      popup.style.transform = 'translate(-50%, -50%) scale(0.3)';
+      popup.style.opacity = '0';
+      popup.style.transformOrigin = 'center center';
+
+      document.body.appendChild(popup);
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          popup.style.transition = 'opacity 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          popup.style.transform = 'translate(-50%, -50%) scale(1.2)';
+          popup.style.opacity = '1';
+
+          setTimeout(() => {
+            popup.style.transition = 'opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)';
+            popup.style.transform = 'translate(-50%, -50%) scale(1.3) translateY(-90px)';
+            popup.style.opacity = '0';
+          }, 1000); // 1 saniye ekranda kal
+
+          setTimeout(() => {
+            popup.remove();
+            if (callback) callback();
+          }, 1250); // Toplam: 300ms (fade in) + 1000ms (ekranda kal) + 250ms (fade out)
+        });
+      });
+    }
+
+    function createStarBurst(cell) {
+      const rect = cell.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const starCount = 12;
+      const colors = [
+        '#FFD700', // Altın
+        '#FF6B6B', // Kırmızı
+        '#4ECDC4', // Turkuaz
+        '#45B7D1', // Mavi
+        '#FFA07A', // Açık turuncu
+        '#98D8C8', // Açık yeşil
+        '#F7DC6F', // Sarı
+        '#BB8FCE', // Mor
+        '#85C1E2', // Açık mavi
+        '#F8B739', // Turuncu
+        '#52BE80', // Yeşil
+        '#EC7063'  // Koral
+      ];
+
+      for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.className = 'key-star';
+
+        const angle = (i * 360 / starCount) * Math.PI / 180;
+        const distance = 80 + Math.random() * 40;
+
+        const endX = Math.cos(angle) * distance;
+        const endY = Math.sin(angle) * distance;
+
+        star.style.left = centerX + 'px';
+        star.style.top = centerY + 'px';
+        star.style.marginLeft = '-8px';
+        star.style.marginTop = '-8px';
+
+        star.style.setProperty('--star-x', endX + 'px');
+        star.style.setProperty('--star-y', endY + 'px');
+
+        const color = colors[i % colors.length];
+        star.style.color = color;
+        star.style.background = `radial-gradient(circle, ${color} 0%, ${color}80 50%, transparent 100%)`;
+
+        star.style.animationDelay = (Math.random() * 0.2) + 's';
+
+        const size = 20 + Math.random() * 8;
+        star.style.width = size + 'px';
+        star.style.height = size + 'px';
+        star.style.marginLeft = '-' + (size / 2) + 'px';
+        star.style.marginTop = '-' + (size / 2) + 'px';
+
+        document.body.appendChild(star);
+
+        setTimeout(() => {
+          if (star.parentNode) {
+            star.remove();
+          }
+        }, 2000);
+      }
+    }
+
+    function highlightKeyLetter(word, matchedSlots) {
+      let slotIndex = -1;
+      for (let i = 0; i < wordSlots.length; i++) {
+        if (!matchedSlots.has(i)) continue;
+        const slot = wordSlots[i];
+        const turkishWord = Array.isArray(slot.answer) ? slot.answer[0] : slot.answer;
+        if (normalize(turkishWord) === normalize(word)) {
+          slotIndex = i;
+          break;
+        }
+      }
+
+      if (slotIndex === -1) return;
+
+      const keyMapping = sayiMappings.find(m => m.slotIndex === slotIndex);
+      if (!keyMapping) return;
+
+      const keyIndex = keyMapping.sayiIndex - 1; // sayiIndex 1'den başlıyor
+      if (keyIndex < 0 || keyIndex >= sariKutuCells.length) return;
+
+      const [keyX, keyY] = sariKutuCells[keyIndex];
+      const keyCell = document.querySelector(`[data-x="${keyX}"][data-y="${keyY}"]`);
+      if (!keyCell) return;
+
+      keyCell.classList.add('key-letter-highlight');
+      keyCell.style.transition = 'all 0.3s ease';
+      keyCell.style.zIndex = '1000';
+
+      const currentBgSize = window.getComputedStyle(keyCell).backgroundSize;
+      keyCell.style.backgroundSize = '120% 120%';
+
+      createStarBurst(keyCell);
+
+      keyCell.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+
+      setTimeout(() => {
+        keyCell.classList.remove('key-letter-highlight');
+        keyCell.style.zIndex = '';
+        keyCell.style.backgroundSize = ''; // Orijinal background-size'a dön
+      }, 1500);
+    }
+
+    function kelimeListesiniGuncelle(newlyFoundWords = []) {
+      const collectedItemsList = document.getElementById("collectedItemsList");
+      if (!collectedItemsList) return;
+
+      const mevcutAsamaKelimeleri = new Set();
+      wordSlots.forEach(slot => {
+        if (Array.isArray(slot.answer)) {
+          slot.answer.forEach(word => mevcutAsamaKelimeleri.add(word));
+        } else {
+          mevcutAsamaKelimeleri.add(slot.answer);
+        }
+      });
+
+      const bulunanMevcutAsama = Array.from(bulunan).filter(word => mevcutAsamaKelimeleri.has(word));
+
+      if (bulunanMevcutAsama.length === 0) {
+        collectedItemsList.innerHTML = '<div class="no-items">Henüz kelime bulunmadı</div>';
+        return;
+      }
+
+      collectedItemsList.innerHTML = "";
+      const kelimeler = bulunanMevcutAsama.reverse();
+
+      kelimeler.forEach((word, index) => {
+        const wordSpan = document.createElement("span");
+        wordSpan.textContent = word;
+        wordSpan.style.fontSize = "14px";
+        wordSpan.style.fontWeight = "bold";
+        wordSpan.style.padding = "6px 12px";
+        wordSpan.style.margin = "4px";
+        wordSpan.style.borderRadius = "6px";
+        wordSpan.style.display = "inline-block";
+        wordSpan.className = "found-word";
+
+        if (newlyFoundWords.includes(word)) {
+          wordSpan.style.color = "#FFFFFF";
+          wordSpan.style.backgroundColor = "#4caf50";
+          wordSpan.style.border = "2px solid #2e7d32";
+          wordSpan.style.boxShadow = "0 4px 12px rgba(76, 175, 80, 0.5)";
+          wordSpan.style.transform = "scale(1.1)";
+          wordSpan.style.transition = "all 0.3s ease";
+          wordSpan.classList.add("newly-found");
+
+          setTimeout(() => {
+            wordSpan.style.color = "#4caf50";
+            wordSpan.style.backgroundColor = "#e8f5e8";
+            wordSpan.style.border = "1px solid #4caf50";
+            wordSpan.style.boxShadow = "none";
+            wordSpan.style.transform = "scale(1)";
+            wordSpan.classList.remove("newly-found");
+          }, 1000);
+        } else {
+          wordSpan.style.color = "#4caf50";
+          wordSpan.style.backgroundColor = "#e8f5e8";
+          wordSpan.style.border = "1px solid #4caf50";
+        }
+
+        collectedItemsList.appendChild(wordSpan);
+
+        if (index < kelimeler.length - 1) {
+          const comma = document.createTextNode(", ");
+          collectedItemsList.appendChild(comma);
+        }
+      });
+    }
+
+    function findNextEmptyInput(currentRow, currentCol, direction = null) {
+      const directions = [
+        [0, 1], [1, 0], [0, -1], [-1, 0],
+        [1, 1], [-1, 1], [1, -1], [-1, -1]
+      ];
+
+      if (direction) {
+        const newRow = currentRow + direction[0];
+        const newCol = currentCol + direction[1];
+
+        if (newRow >= 0 && newRow < 13 && newCol >= 0 && newCol < 15) {
+          const nextCell = document.querySelector(`[data-x="${newCol}"][data-y="${newRow}"]`);
+          if (nextCell) {
+            const nextInput = nextCell.querySelector('input');
+            if (nextInput) {
+              lastDirection = direction;
+              lastPosition = [newRow, newCol];
+              return nextInput;
+            }
+          }
+        }
+      }
+
+      if (lastDirection) {
+        const newRow = currentRow + lastDirection[0];
+        const newCol = currentCol + lastDirection[1];
+
+        if (newRow >= 0 && newRow < 13 && newCol >= 0 && newCol < 15) {
+          const nextCell = document.querySelector(`[data-x="${newCol}"][data-y="${newRow}"]`);
+          if (nextCell) {
+            const nextInput = nextCell.querySelector('input');
+            if (nextInput) {
+              lastPosition = [newRow, newCol];
+              return nextInput;
+            }
+          }
+        }
+      }
+
+      for (const [dr, dc] of directions) {
+        const newRow = currentRow + dr;
+        const newCol = currentCol + dc;
+
+        if (newRow >= 0 && newRow < 13 && newCol >= 0 && newCol < 15) {
+          const nextCell = document.querySelector(`[data-x="${newCol}"][data-y="${newRow}"]`);
+          if (nextCell) {
+            const nextInput = nextCell.querySelector('input');
+            if (nextInput) {
+              lastDirection = [dr, dc];
+              lastPosition = [newRow, newCol];
+              return nextInput;
+            }
+          }
+        }
+      }
+
+      return null;
+    }
+
+    function findPreviousInput(currentRow, currentCol) {
+      if (!lastDirection) return null;
+
+      const reverseDirection = [-lastDirection[0], -lastDirection[1]];
+      const newRow = currentRow + reverseDirection[0];
+      const newCol = currentCol + reverseDirection[1];
+
+      if (newRow >= 0 && newRow < 14 && newCol >= 0 && newCol < 14) {
+        const prevCell = document.querySelector(`[data-x="${newCol}"][data-y="${newRow}"]`);
+        if (prevCell) {
+          const prevInput = prevCell.querySelector('input');
+          if (prevInput) {
+            return prevInput;
+          }
+        }
+      }
+      return null;
+    }
+
+    let completionAnimationActive = false;
+    let animationTimeouts = []; // Tüm setTimeout referanslarını sakla
+
+    const tamamlananAsamalar = {
+      1: false, // 1. aşama tamamlandı mı?
+      2: false, // 2. aşama tamamlandı mı?
+      3: false  // 3. aşama tamamlandı mı?
+    };
+
+    function endGame() {
+      setTimeout(() => showCompletionEffects(), 1000);
+    }
+
+    function showCompletionEffects() {
+      if (completionAnimationActive) return;
+
+      if (tamamlananAsamalar[oyunSeviyesi]) return;
+
+      const leftFore = document.getElementById('leftFore');
+      if (!leftFore) return;
+
+      tamamlananAsamalar[oyunSeviyesi] = true;
+
+      completionAnimationActive = true;
+
+      try {
+        const winSound = new Audio('sounds/level_complete.mp3');
+        winSound.volume = 0.6;
+        winSound.play().catch(() => {});
+      } catch(_) {}
+
+      animationTimeouts.forEach(timeout => clearTimeout(timeout));
+      animationTimeouts = [];
+
+      const lfRect = leftFore.getBoundingClientRect();
+
+      let popup = document.getElementById('completion-popup');
+      if (popup) {
+        popup.remove();
+      }
+
+      popup = document.createElement('div');
+      popup.id = 'completion-popup';
+      popup.className = 'completion-popup';
+
+      const clone = leftFore.cloneNode(true);
+      clone.id = 'completion-popup-content';
+      popup.appendChild(clone);
+
+      const popupStars = popup.querySelector('#stars');
+      if (popupStars) {
+        const toplamKelimeSayisi = wordSlots.length;
+        popupStars.textContent = '⭐'.repeat(toplamKelimeSayisi);
+      }
+
+      const popupCollectedItems = popup.querySelector('.collected-items');
+      if (popupCollectedItems) {
+        const popupHeading = popupCollectedItems.querySelector('h4');
+        if (popupHeading) {
+          popupHeading.textContent = 'Anahtar Kelime:';
+        }
+
+        const popupCollectedItemsList = popupCollectedItems.querySelector('#collectedItemsList');
+        if (popupCollectedItemsList) {
+          const anahtarKelime = sonucHarfleri.join('').toUpperCase();
+          if (anahtarKelime && anahtarKelime.length > 0) {
+            popupCollectedItemsList.innerHTML = '';
+            popupCollectedItemsList.style.display = 'flex';
+            popupCollectedItemsList.style.flexDirection = 'row';
+            popupCollectedItemsList.style.justifyContent = 'center';
+            popupCollectedItemsList.style.alignItems = 'center';
+            popupCollectedItemsList.style.gap = '4px';
+            popupCollectedItemsList.style.flexWrap = 'nowrap';
+            popupCollectedItemsList.style.padding = '15px 5px';
+            popupCollectedItemsList.style.minHeight = 'auto';
+            popupCollectedItemsList.style.maxHeight = 'none';
+            popupCollectedItemsList.style.width = '100%';
+            popupCollectedItemsList.style.minWidth = '0';
+            popupCollectedItemsList.style.maxWidth = '100%';
+            popupCollectedItemsList.style.overflowX = 'visible';
+            popupCollectedItemsList.style.overflowY = 'visible';
+            popupCollectedItemsList.style.boxSizing = 'border-box';
+            popupCollectedItemsList.style.flex = '0 0 auto';
+
+            const firstSariCell = document.querySelector(`[data-x="${sariKutuCells[0][0]}"][data-y="${sariKutuCells[0][1]}"]`);
+            let originalCellStyle = {};
+            if (firstSariCell) {
+              const computedStyle = window.getComputedStyle(firstSariCell);
+              originalCellStyle = {
+                backgroundColor: computedStyle.backgroundColor,
+                border: computedStyle.border,
+                borderRadius: computedStyle.borderRadius,
+                backgroundImage: computedStyle.backgroundImage,
+                backgroundSize: computedStyle.backgroundSize,
+                backgroundPosition: computedStyle.backgroundPosition
+              };
+            }
+
+            const harfSayisi = sariKutuCells.length;
+            const maxCellSize = harfSayisi > 6 ? 38 : 45; // 7+ harf için 38px, 6 ve altı için 45px
+
+            sariKutuCells.forEach(([x, y], index) => {
+              const originalCell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+              if (originalCell) {
+                const clonedCell = originalCell.cloneNode(true);
+                clonedCell.className = 'key-word-cell-popup';
+
+                const cellRect = originalCell.getBoundingClientRect();
+                const cellSize = Math.min(cellRect.width, cellRect.height, maxCellSize);
+
+                clonedCell.style.cssText = `
+                  width: ${cellSize}px;
+                  height: ${cellSize}px;
+                  min-width: ${cellSize}px;
+                  min-height: ${cellSize}px;
+                  max-width: ${cellSize}px;
+                  max-height: ${cellSize}px;
+                  aspect-ratio: 1 / 1;
+                  position: relative;
+                  opacity: 0;
+                  transform: scale(0) translateY(-20px);
+                  animation: letterAppearSequence 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.15}s forwards;
+                  flex-shrink: 0;
+                `;
+
+                if (originalCellStyle.backgroundColor) {
+                  clonedCell.style.backgroundColor = originalCellStyle.backgroundColor;
+                }
+                if (originalCellStyle.border) {
+                  clonedCell.style.border = originalCellStyle.border;
+                }
+                if (originalCellStyle.borderRadius) {
+                  clonedCell.style.borderRadius = originalCellStyle.borderRadius;
+                }
+                if (originalCellStyle.backgroundImage && originalCellStyle.backgroundImage !== 'none') {
+                  clonedCell.style.backgroundImage = originalCellStyle.backgroundImage;
+                  clonedCell.style.backgroundSize = originalCellStyle.backgroundSize;
+                  clonedCell.style.backgroundPosition = originalCellStyle.backgroundPosition;
+                }
+
+                const input = clonedCell.querySelector('input');
+                if (input) {
+                  input.value = sonucHarfleri[index] || '';
+                  input.readOnly = true;
+
+                  const originalInput = originalCell.querySelector('input');
+                  let inputStyle = {};
+                  if (originalInput) {
+                    const computedInputStyle = window.getComputedStyle(originalInput);
+                    inputStyle = {
+                      fontSize: computedInputStyle.fontSize,
+                      fontWeight: computedInputStyle.fontWeight,
+                      color: computedInputStyle.color,
+                      textAlign: computedInputStyle.textAlign
+                    };
+                  }
+
+                  input.style.cssText = `
+                    width: 100%;
+                    height: 100%;
+                    font-size: ${inputStyle.fontSize || '20px'};
+                    font-weight: ${inputStyle.fontWeight || 'bold'};
+                    text-align: ${inputStyle.textAlign || 'center'};
+                    border: none;
+                    outline: none;
+                    background: transparent;
+                    color: ${inputStyle.color || '#1E3A8A'};
+                    padding: 0;
+                    margin: 0;
+                  `;
+                }
+
+                popupCollectedItemsList.appendChild(clonedCell);
+              }
+            });
+          } else {
+            popupCollectedItemsList.innerHTML = '<div class="no-items">Anahtar kelime henüz tamamlanmadı</div>';
+          }
+        }
+      }
+
+      const popupButtons = popup.querySelectorAll('button');
+      popupButtons.forEach(btn => {
+        const onclickAttr = btn.getAttribute('onclick');
+        if (onclickAttr) {
+          btn.removeAttribute('onclick');
+          if (onclickAttr.includes('oyunuSifirla')) {
+            btn.addEventListener('click', oyunuSifirla);
+          } else if (onclickAttr.includes('sonrakiAsama')) {
+            btn.addEventListener('click', sonrakiAsama);
+          } else if (onclickAttr.includes('oncekiAsama')) {
+            btn.addEventListener('click', oncekiAsama);
+          }
+        }
+      });
+
+      popup.style.maxWidth = '95vw'; // Viewport genişliğinin %95'i
+
+      document.body.appendChild(popup);
+
+      void popup.offsetHeight;
+
+      popup.classList.add('completion-popup-active');
+
+      const timeout1 = setTimeout(() => {
+        createCompletionAnimation();
+      }, 100);
+      animationTimeouts.push(timeout1);
+    }
+
+    function createCompletionAnimation() {
+      if (document.body.classList.contains('completion-bg-active')) {
+        return;
+      }
+
+      document.body.classList.add('completion-bg-active');
+
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+      const colors = ['#1E3A8A', '#FF8A00', '#1E88E5', '#1565C0', '#FFA726', '#FB8C00', '#2E7D32', '#388E3C'];
+
+      const fragment = document.createDocumentFragment();
+      const confettiElements = [];
+      for (let i = 0; i < 50; i++) {
+        const angle = (i * 7.2) * Math.PI / 180;
+        const distance = 400 + Math.random() * 300;
+        const endX = centerX + Math.cos(angle) * distance;
+        const endY = centerY + Math.sin(angle) * distance;
+        const size = 10 + Math.random() * 8;
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.style.left = centerX + 'px';
+        c.style.top = centerY + 'px';
+        c.style.width = size + 'px';
+        c.style.height = size + 'px';
+        c.style.marginLeft = (-size / 2) + 'px';
+        c.style.marginTop = (-size / 2) + 'px';
+        c.style.backgroundColor = colors[i % colors.length];
+        c.style.setProperty('--end-x', (endX - centerX) + 'px');
+        c.style.setProperty('--end-y', (endY - centerY) + 'px');
+        c.style.setProperty('--delay', (Math.random() * 0.2) + 's');
+        c.style.setProperty('--duration', (2.5 + Math.random() * 0.5) + 's');
+        fragment.appendChild(c);
+        confettiElements.push(c);
+      }
+      document.body.appendChild(fragment);
+
+      const confettiTimeout = setTimeout(() => {
+        if (!completionAnimationActive) return;
+        confettiElements.forEach(c => {
+          if (c && c.parentNode) c.remove();
+        });
+      }, 4000);
+      animationTimeouts.push(confettiTimeout);
+
+      const starTimeout = setTimeout(() => {
+        if (!completionAnimationActive) return;
+
+        const starFragment = document.createDocumentFragment();
+        const starElements = [];
+        for (let i = 0; i < 30; i++) {
+          const star = document.createElement('div');
+          star.className = 'star-burst';
+          const angle = (i * 12) * Math.PI / 180;
+          const distance = 250 + Math.random() * 200;
+          const endX = centerX + Math.cos(angle) * distance;
+          const endY = centerY + Math.sin(angle) * distance;
+          star.style.left = centerX + 'px';
+          star.style.top = centerY + 'px';
+          star.style.marginLeft = '-8px';
+          star.style.marginTop = '-8px';
+          star.style.setProperty('--end-x', (endX - centerX) + 'px');
+          star.style.setProperty('--end-y', (endY - centerY) + 'px');
+          starFragment.appendChild(star);
+          starElements.push(star);
+        }
+        document.body.appendChild(starFragment);
+
+        const starRemoveTimeout = setTimeout(() => {
+          if (!completionAnimationActive) return;
+          starElements.forEach(star => {
+            if (star && star.parentNode) star.remove();
+          });
+        }, 3000);
+        animationTimeouts.push(starRemoveTimeout);
+      }, 500);
+      animationTimeouts.push(starTimeout);
+
+      const rainTimeout = setTimeout(() => {
+        if (!completionAnimationActive) return;
+
+        const rainFragment = document.createDocumentFragment();
+        const rainElements = [];
+        for (let j = 0; j < 15; j++) {
+          const size = 8 + Math.random() * 6;
+          const randomX = (Math.random() - 0.5) * 80;
+          const c = document.createElement('div');
+          c.className = 'confetti-rain';
+          c.style.left = Math.random() * 100 + '%';
+          c.style.top = '-20px';
+          c.style.width = size + 'px';
+          c.style.height = size + 'px';
+          c.style.marginLeft = (-size / 2) + 'px';
+          c.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+          c.style.setProperty('--random-x', randomX + 'px');
+          c.style.setProperty('--delay', (Math.random() * 0.3) + 's');
+          c.style.setProperty('--duration', (3.5 + Math.random() * 1) + 's');
+          rainFragment.appendChild(c);
+          rainElements.push(c);
+        }
+        document.body.appendChild(rainFragment);
+
+        const rainRemoveTimeout = setTimeout(() => {
+          if (!completionAnimationActive) return;
+          rainElements.forEach(c => {
+            if (c && c.parentNode) c.remove();
+          });
+        }, 6000);
+        animationTimeouts.push(rainRemoveTimeout);
+      }, 800);
+      animationTimeouts.push(rainTimeout);
+    }
+
+    function clearCompletionEffects() {
+      completionAnimationActive = false;
+
+      animationTimeouts.forEach(timeout => clearTimeout(timeout));
+      animationTimeouts = [];
+
+      document.body.classList.remove('completion-bg-active');
+
+      document.querySelectorAll('.confetti, .confetti-rain, .star-burst').forEach(el => el.remove());
+
+      const popup = document.getElementById('completion-popup');
+      if (popup) {
+        popup.classList.remove('completion-popup-active');
+        const popupTimeout = setTimeout(() => {
+          if (popup.parentNode) popup.remove();
+        }, 300);
+        animationTimeouts.push(popupTimeout);
+      }
+    }
+
+    function guncelleButonDurumlari() {
+      const oncekiBtn = document.getElementById('oncekiBtn');
+      const sonrakiBtn = document.getElementById('sonrakiBtn');
+
+      if (oncekiBtn) {
+        oncekiBtn.disabled = (oyunSeviyesi === 1);
+        if (oyunSeviyesi === 1) {
+          oncekiBtn.style.opacity = '0.5';
+          oncekiBtn.style.cursor = 'not-allowed';
+        } else {
+          oncekiBtn.style.opacity = '1';
+          oncekiBtn.style.cursor = 'pointer';
+        }
+      }
+
+      if (sonrakiBtn) {
+        sonrakiBtn.disabled = (oyunSeviyesi === 3);
+        if (oyunSeviyesi === 3) {
+          sonrakiBtn.style.opacity = '0.5';
+          sonrakiBtn.style.cursor = 'not-allowed';
+        } else {
+          sonrakiBtn.style.opacity = '1';
+          sonrakiBtn.style.cursor = 'pointer';
+        }
+      }
+    }
+
+    function oyunuSifirla() {
+      clearCompletionEffects();
+
+      localStorage.removeItem('cengel_bulmaca_state');
+
+      bulunan.clear();
+      bulunanDurumlari[oyunSeviyesi].clear();
+
+      tamamlananAsamalar[oyunSeviyesi] = false;
+
+      for (let i = 0; i < 15; i++) {
+        tablo[i] = Array(15).fill("");
+      }
+      tabloDurumlari[oyunSeviyesi] = [];
+      for (let i = 0; i < 15; i++) {
+        tabloDurumlari[oyunSeviyesi][i] = Array(15).fill("");
+      }
+
+      wordSlots.length = 0; // Mevcut kelimeleri temizle
+
+      if (oyunSeviyesi === 1) {
+        wordSlots.push(...eskiKelimeler);
+        sayiMappings = eskiSayiMappings;
+        sariKutuCells = eskiSariKutuCells;
+        sonucHarfleri = [...eskiSonucHarfleri];
+        showSayiMarkers = true;
+      } else if (oyunSeviyesi === 2) {
+        wordSlots.push(...yeniKelimeler);
+        sayiMappings = yeniSayiMappings;
+        sariKutuCells = yeniSariKutuCells;
+        sonucHarfleri = [...yeniSonucHarfleri];
+        showSayiMarkers = false;
+      } else if (oyunSeviyesi === 3) {
+        wordSlots.push(...ucuncuKelimeler);
+        sayiMappings = ucuncuSayiMappings;
+        sariKutuCells = ucuncuSariKutuCells;
+        sonucHarfleri = [...ucuncuSonucHarfleri];
+        showSayiMarkers = false;
+      }
+
+      for (let i = 0; i < sonucHarfleri.length; i++) sonucHarfleri[i] = "";
+
+      buildVisibleCells();
+      tabloyuGoster();
+      kelimeNumaralariniYerlestir();
+
+      guncelleSariKutuHarfleri(new Set());
+
+      kelimeListesiniGuncelle();
+
+      if (originalKontrolEt) {
+        originalKontrolEt();
+      }
+
+      if (oyunSeviyesi === 1) {
+        eskiIpuclariYukle();
+      } else if (oyunSeviyesi === 2) {
+        yeniIpuclariYukle();
+      } else if (oyunSeviyesi === 3) {
+        ucuncuIpuclariYukle();
+      }
+
+      guncelleYildizlar();
+
+      guncelleButonDurumlari();
+
+      saveGameState();
+    }
+
+    function sonrakiAsama() {
+      if (oyunSeviyesi === 3) return;
+
+      clearCompletionEffects();
+
+      saveGameState();
+
+      const eskiSeviye = oyunSeviyesi;
+      tabloDurumlari[eskiSeviye] = [];
+      for (let i = 0; i < 15; i++) {
+        if (tablo[i]) {
+          tabloDurumlari[eskiSeviye][i] = [...tablo[i]];
+        } else {
+          tabloDurumlari[eskiSeviye][i] = [];
+        }
+      }
+
+      bulunanDurumlari[eskiSeviye] = new Set(bulunan);
+
+      if (oyunSeviyesi === 1) {
+        oyunSeviyesi = 2;
+      } else if (oyunSeviyesi === 2) {
+        oyunSeviyesi = 3;
+      } else {
+        oyunSeviyesi = 1; // 3'ten sonra 1'e dön
+      }
+
+      if (tabloDurumlari[oyunSeviyesi] && tabloDurumlari[oyunSeviyesi].length > 0) {
+        for (let i = 0; i < 15; i++) {
+          if (tabloDurumlari[oyunSeviyesi][i]) {
+            tablo[i] = [...tabloDurumlari[oyunSeviyesi][i]];
+          } else {
+            tablo[i] = [];
+          }
+        }
+      } else {
+        for (let i = 0; i < 15; i++) {
+          tablo[i] = Array(15).fill("");
+        }
+      }
+
+      wordSlots.length = 0; // Mevcut kelimeleri temizle
+
+      if (oyunSeviyesi === 1) {
+        wordSlots.push(...eskiKelimeler);
+        sayiMappings = eskiSayiMappings;
+        sariKutuCells = eskiSariKutuCells;
+        sonucHarfleri = [...eskiSonucHarfleri];
+        showSayiMarkers = true;
+      } else if (oyunSeviyesi === 2) {
+        wordSlots.push(...yeniKelimeler);
+        sayiMappings = yeniSayiMappings;
+        sariKutuCells = yeniSariKutuCells;
+        sonucHarfleri = [...yeniSonucHarfleri];
+        showSayiMarkers = false;
+      } else if (oyunSeviyesi === 3) {
+        wordSlots.push(...ucuncuKelimeler);
+        sayiMappings = ucuncuSayiMappings;
+        sariKutuCells = ucuncuSariKutuCells;
+        sonucHarfleri = [...ucuncuSonucHarfleri];
+        showSayiMarkers = false;
+      }
+
+      bulunan.clear();
+      if (bulunanDurumlari[oyunSeviyesi]) {
+        bulunanDurumlari[oyunSeviyesi].forEach(word => bulunan.add(word));
+      }
+
+      completionAnimationActive = false;
+      clearCompletionEffects();
+
+      buildVisibleCells();
+
+      tabloyuGoster();
+      kelimeNumaralariniYerlestir();
+
+      kelimeListesiniGuncelle();
+
+      if (originalKontrolEt) {
+        originalKontrolEt();
+      } else {
+        kontrolEt(); // Eğer originalKontrolEt henüz tanımlanmamışsa normal kontrolEt kullan
+      }
+
+      if (oyunSeviyesi === 1) {
+        eskiIpuclariYukle();
+      } else if (oyunSeviyesi === 2) {
+        yeniIpuclariYukle();
+      } else if (oyunSeviyesi === 3) {
+        ucuncuIpuclariYukle();
+      }
+
+      guncelleYildizlar();
+
+      guncelleButonDurumlari();
+
+      saveGameState();
+    }
+
+    function oncekiAsama() {
+      if (oyunSeviyesi === 1) return;
+
+      clearCompletionEffects();
+
+      saveGameState();
+
+      const eskiSeviye = oyunSeviyesi;
+      tabloDurumlari[eskiSeviye] = [];
+      for (let i = 0; i < 15; i++) {
+        if (tablo[i]) {
+          tabloDurumlari[eskiSeviye][i] = [...tablo[i]];
+        } else {
+          tabloDurumlari[eskiSeviye][i] = [];
+        }
+      }
+
+      bulunanDurumlari[eskiSeviye] = new Set(bulunan);
+
+      if (oyunSeviyesi === 1) {
+        oyunSeviyesi = 3; // 1'den önce 3'e dön
+      } else if (oyunSeviyesi === 2) {
+        oyunSeviyesi = 1;
+      } else {
+        oyunSeviyesi = 2; // 3'ten önce 2'ye dön
+      }
+
+      if (tabloDurumlari[oyunSeviyesi] && tabloDurumlari[oyunSeviyesi].length > 0) {
+        for (let i = 0; i < 15; i++) {
+          if (tabloDurumlari[oyunSeviyesi][i]) {
+            tablo[i] = [...tabloDurumlari[oyunSeviyesi][i]];
+          } else {
+            tablo[i] = [];
+          }
+        }
+      } else {
+        for (let i = 0; i < 15; i++) {
+          tablo[i] = Array(15).fill("");
+        }
+      }
+
+      wordSlots.length = 0; // Mevcut kelimeleri temizle
+
+      if (oyunSeviyesi === 1) {
+        wordSlots.push(...eskiKelimeler);
+        sayiMappings = eskiSayiMappings;
+        sariKutuCells = eskiSariKutuCells;
+        sonucHarfleri = [...eskiSonucHarfleri];
+        showSayiMarkers = true;
+      } else if (oyunSeviyesi === 2) {
+        wordSlots.push(...yeniKelimeler);
+        sayiMappings = yeniSayiMappings;
+        sariKutuCells = yeniSariKutuCells;
+        sonucHarfleri = [...yeniSonucHarfleri];
+        showSayiMarkers = false;
+      } else if (oyunSeviyesi === 3) {
+        wordSlots.push(...ucuncuKelimeler);
+        sayiMappings = ucuncuSayiMappings;
+        sariKutuCells = ucuncuSariKutuCells;
+        sonucHarfleri = [...ucuncuSonucHarfleri];
+        showSayiMarkers = false;
+      }
+
+      bulunan.clear();
+      if (bulunanDurumlari[oyunSeviyesi]) {
+        bulunanDurumlari[oyunSeviyesi].forEach(word => bulunan.add(word));
+      }
+
+      completionAnimationActive = false;
+      clearCompletionEffects();
+
+      buildVisibleCells();
+
+      tabloyuGoster();
+      kelimeNumaralariniYerlestir();
+
+      kelimeListesiniGuncelle();
+
+      if (originalKontrolEt) {
+        originalKontrolEt();
+      } else {
+        kontrolEt(); // Eğer originalKontrolEt henüz tanımlanmamışsa normal kontrolEt kullan
+      }
+
+      if (oyunSeviyesi === 1) {
+        eskiIpuclariYukle();
+      } else if (oyunSeviyesi === 2) {
+        yeniIpuclariYukle();
+      } else if (oyunSeviyesi === 3) {
+        ucuncuIpuclariYukle();
+      }
+
+      guncelleYildizlar();
+
+      guncelleButonDurumlari();
+
+      saveGameState();
+    }
+
+    function kelimeNumaralariniYerlestir() {
+      document.querySelectorAll('.word-container').forEach(el => el.remove());
+
+      const positionGroups = new Map();
+
+      wordSlots.forEach((slot, index) => {
+        if (slot.cells && slot.cells.length > 0) {
+          const firstCell = slot.cells[0];
+          const [x, y] = firstCell;
+          const positionKey = `${x},${y}`;
+
+          if (!positionGroups.has(positionKey)) {
+            positionGroups.set(positionKey, []);
+          }
+          positionGroups.get(positionKey).push({ slot, index });
+        }
+      });
+
+      positionGroups.forEach((words, positionKey) => {
+        const [x, y] = positionKey.split(',').map(Number);
+        const cellElement = document.querySelector(`[data-satir="${y}"][data-sutun="${x}"]`);
+
+        if (cellElement && words.length > 0) {
+          if (words.length === 1) {
+            const isHorizontal = words[0].slot.cells.length > 1 &&
+                                words[0].slot.cells[0][0] !== words[0].slot.cells[1][0];
+
+            const isSariKutu = y === 14 && (
+              (sariKutuCells === yeniSariKutuCells && x >= 8 && x <= 14) || // Yeni kelimeler için 7 harf
+              (sariKutuCells === ucuncuSariKutuCells && x >= 9 && x <= 14) || // 3. oyun için 6 harf - TEDBİR kelimesi için
+              (sariKutuCells === eskiSariKutuCells && x >= 11 && x <= 14)    // Eski kelimeler için 4 harf - AFET kelimesi için
+            );
+
+            if (isSariKutu) {
+              const container = document.createElement('div');
+              container.className = 'word-container';
+              container.style.top = '2px';
+              container.style.left = '2px';
+
+              const numberElement = document.createElement('div');
+              numberElement.className = 'word-number';
+              numberElement.style.backgroundImage = `url('img/cb_kelime${words[0].index + 1}.png')`;
+              container.appendChild(numberElement);
+
+              cellElement.appendChild(container);
+            } else {
+              const container = document.createElement('div');
+              container.className = 'word-container';
+              if (isHorizontal) {
+                container.style.top = '2px';
+                container.style.right = '2px';
+                container.style.left = 'auto';
+              } else {
+                container.style.bottom = '2px';
+                container.style.left = '2px';
+                container.style.top = 'auto';
+              }
+
+              const numberElement = document.createElement('div');
+              numberElement.className = 'word-number';
+              numberElement.style.backgroundImage = `url('img/cb_kelime${words[0].index + 1}.png')`;
+              container.appendChild(numberElement);
+
+              const arrowElement = document.createElement('i');
+              arrowElement.className = `word-arrow fas ${isHorizontal ? 'fa-arrow-right' : 'fa-arrow-down'}`;
+              container.appendChild(arrowElement);
+
+              cellElement.appendChild(container);
+            }
+
+          } else {
+            words.forEach((word, wordIndex) => {
+              const isHorizontal = word.slot.cells.length > 1 &&
+                                  word.slot.cells[0][0] !== word.slot.cells[1][0];
+
+              const isSariKutu = y === 14 && (
+                (sariKutuCells === yeniSariKutuCells && x >= 8 && x <= 14) || // Yeni kelimeler için 7 harf
+                (sariKutuCells === ucuncuSariKutuCells && x >= 9 && x <= 14) || // 3. oyun için 6 harf - TEDBİR kelimesi için
+                (sariKutuCells === eskiSariKutuCells && x >= 11 && x <= 14)    // Eski kelimeler için 4 harf - AFET kelimesi için
+              );
+
+              if (isSariKutu) {
+                const container = document.createElement('div');
+                container.className = 'word-container';
+                if (wordIndex === 0) {
+                  container.style.top = '2px';
+                  container.style.left = '2px';
+                } else {
+                  container.style.top = '2px';
+                  container.style.right = '2px';
+                  container.style.left = 'auto';
+                }
+
+                const numberElement = document.createElement('div');
+                numberElement.className = 'word-number';
+                numberElement.style.backgroundImage = `url('img/cb_kelime${word.index + 1}.png')`;
+                container.appendChild(numberElement);
+
+                cellElement.appendChild(container);
+              } else {
+                const container = document.createElement('div');
+                container.className = 'word-container';
+                if (isHorizontal) {
+                  container.style.top = '2px';
+                  if (wordIndex === 0) {
+                    container.style.right = '2px';
+                    container.style.left = 'auto';
+                  } else {
+                    container.style.right = '2px';
+                    container.style.left = 'auto';
+                  }
+                } else {
+                  container.style.bottom = '2px';
+                  container.style.top = 'auto';
+                  if (wordIndex === 0) {
+                    container.style.left = '2px';
+                  } else {
+                    container.style.right = '2px';
+                    container.style.left = 'auto';
+                  }
+                }
+
+                const numberElement = document.createElement('div');
+                numberElement.className = 'word-number';
+                numberElement.style.backgroundImage = `url('img/cb_kelime${word.index + 1}.png')`;
+                container.appendChild(numberElement);
+
+                const arrowElement = document.createElement('i');
+                arrowElement.className = `word-arrow fas ${isHorizontal ? 'fa-arrow-right' : 'fa-arrow-down'}`;
+                container.appendChild(arrowElement);
+
+                cellElement.appendChild(container);
+              }
+            });
+          }
+        }
+      });
+    }
+
+    const eskiKelimeler = [
+      {
+        answer: ['ÇÖKKAPANTUTUN'],
+        cells: Array.from({length:13}, (_,i)=>[0,0+i]) // x=0, y=0..12 - 1
+      },
+      {
+        answer: ['FAYHATTI'],
+        cells: Array.from({length:8}, (_,i)=>[14,0+i]) // x=14, y=0..7 - 2 (1 blok sağa)
+      },
+      {
+        answer: ['ATEŞÇEMBERİ'],
+        cells: Array.from({length:11}, (_,i)=>[0+i,4]) // x=0..10, y=4 - 3
+      },
+      {
+        answer: ['SİSMOGRAF'],
+        cells: Array.from({length:9}, (_,i)=>[6+i,0]) // x=6..14, y=0 - 4 (1 blok sola)
+      },
+      {
+        answer: ['EPİSANTR'],
+        cells: Array.from({length:8}, (_,i)=>[10,2+i]) // x=10, y=2..9 - 5 (uzunluk 8)
+      },
+      {
+        answer: ['DÜDÜK'],
+        cells: Array.from({length:5}, (_,i)=>[3,7+i]) // x=3, y=7..11 - 6 (1 blok sağa)
+      },
+      {
+        answer: ['FENER'],
+        cells: Array.from({length:5}, (_,i)=>[6+i,9]) // x=6..10, y=10 - 7
+      },
+      {
+        answer: ['DOĞAKAYNAKLI'],
+        cells: Array.from({length:12}, (_,i)=>[3+i,7]) // x=3..14, y=7 - 8 (1 blok sağa)
+      }
+    ];
+
+    const yeniKelimeler = [
+      {
+        answer: ['HATAAYIKLAMA'],
+        cells: Array.from({length:12}, (_,i)=>[10,0+i]) // x=10, y=0..11 - 1 (dikey)
+      },
+      {
+        answer: ['SİSMİKDALGA'],
+        cells: Array.from({length:11}, (_,i)=>[0+i,1]) // x=0..10, y=1 - 2 (yatay, sağa doğru)
+      },
+      {
+        answer: ['TOPLANMAALANI'],
+        cells: Array.from({length:13}, (_,i)=>[13,0+i]) // x=13, y=0..12 - 3 (dikey, aşağı doğru)
+      },
+      {
+        answer: ['ARTÇIŞOK'],
+        cells: Array.from({length:8}, (_,i)=>[2,3+i]) // x=2, y=3..10 - 4 (dikey)
+      },
+      {
+        answer: ['RICHTER', 'RİCHTER'],
+        cells: Array.from({length:7}, (_,i)=>[6,3+i]) // x=6, y=3..9 - 5 (dikey)
+      },
+      {
+        answer: ['ALGORİTMA'],
+        cells: Array.from({length:9}, (_,i)=>[2+i,3]) // x=2..10, y=3 - 6 (yatay)
+      },
+      {
+        answer: ['TAHLİYE'],
+        cells: Array.from({length:7}, (_,i)=>[8,3+i]) // x=8, y=3..9 - 7 (dikey)
+      },
+      {
+        answer: ['ENKAZALANI'],
+        cells: Array.from({length:10}, (_,i)=>[5+i,11]) // x=5..14, y=11 - 8 (yatay, sağa doğru)
+      }
+    ];
+
+    const ucuncuKelimeler = [
+      {
+        answer: ['KURU GIDA', 'KURUGIDA'],
+        cells: Array.from({length:8}, (_,i)=>[0+i,1]) // x=0..7, y=1 - 1 (yatay, sağa doğru)
+      },
+      {
+        answer: ['ÖNLEM'],
+        cells: Array.from({length:5}, (_,i)=>[0+i,9]) // x=0..4, y=9 - 2 (yatay, sağa doğru)
+      },
+      {
+        answer: ['VOLKAN'],
+        cells: Array.from({length:6}, (_,i)=>[1,4+i]) // x=1, y=4..9 - 3 (dikey, aşağı doğru)
+      },
+      {
+        answer: ['ODAK NOKTASI', 'ODAKNOKTASI'],
+        cells: Array.from({length:11}, (_,i)=>[1+i,5]) // x=1..11, y=5 - 4 (yatay, sağa doğru)
+      },
+      {
+        answer: ['HEYELAN'],
+        cells: Array.from({length:7}, (_,i)=>[3,8+i]) // x=3, y=8..14 - 5 (dikey, aşağı doğru)
+      },
+      {
+        answer: ['YILDIRIM'],
+        cells: Array.from({length:8}, (_,i)=>[1+i,12]) // x=1..8, y=12 - 6 (yatay, sağa doğru)
+      },
+      {
+        answer: ['TATBİKAT'],
+        cells: Array.from({length:8}, (_,i)=>[7,0+i]) // x=7, y=0..7 - 7 (dikey, aşağı doğru)
+      },
+      {
+        answer: ['TSUNAMİ'],
+        cells: Array.from({length:7}, (_,i)=>[10,4+i]) // x=10, y=4..10 - 8 (dikey, aşağı doğru)
+      }
+    ];
+
+    function eskiIpuclariYukle() {
+      const cluesContent = document.getElementById('clues-content');
+      if (!cluesContent) return;
+
+      cluesContent.innerHTML = `
+        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.5;">
+          <div style="margin-bottom: 8px;"><strong>1.</strong> Depremde yapılması gereken üçlü korunma hareketi.</div>
+          <div style="margin-bottom: 8px;"><strong>2.</strong> Deprem üreten yer kabuğu kırığı.</div>
+          <div style="margin-bottom: 8px;"><strong>3.</strong> Pasifik Okyanusu'nu çevreleyen birçok tektonik levhanın buluştuğu yer.</div>
+          <div style="margin-bottom: 8px;"><strong>4.</strong> Depremin büyüklüğünü kaydeden alet.</div>
+          <div style="margin-bottom: 8px;"><strong>5.</strong> Dünya yüzeyindeki depremin merkez üstü.</div>
+          <div style="margin-bottom: 8px;"><strong>6.</strong> İnsanlara sesimizi duyurduğumuz gürültücü alet.</div>
+          <div style="margin-bottom: 8px;"><strong>7.</strong> Karanlıkta etrafı aydınlatır, çalışması için pile ihtiyaç vardır.</div>
+          <div style="margin-bottom: 8px;"><strong>8.</strong> ... afetler ("..." kısmını doldurun.)</div>
+        </div>
+      `;
+    }
+
+    function yeniIpuclariYukle() {
+      const cluesContent = document.getElementById('clues-content');
+      if (!cluesContent) return;
+
+      cluesContent.innerHTML = `
+        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.5;">
+          <div style="margin-bottom: 8px;"><strong>1.</strong> Kodlamada programın doğru çalışıp çalışmadığını kontrol etme</div>
+          <div style="margin-bottom: 8px;"><strong>2.</strong> Yer kabuğundaki kırılma sonucu açığa çıkan enerjinin dalga şeklinde yayılmasıyla oluşan titreşim hareketi</div>
+          <div style="margin-bottom: 8px;"><strong>3.</strong> Deprem sonrası insanların güvenle buluştuğu açık alan</div>
+          <div style="margin-bottom: 8px;"><strong>4.</strong> Depremden sonra gelen küçük sarsıntılar</div>
+          <div style="margin-bottom: 8px;"><strong>5.</strong> Deprem büyüklüğünü sayılarla ifade eden ölçek</div>
+          <div style="margin-bottom: 8px;"><strong>6.</strong> Kodlamada adım adım izlenen komut dizisi</div>
+          <div style="margin-bottom: 8px;"><strong>7.</strong> Deprem anında güvenli olmayan bölgelerden insanların uzaklaştırılması işlemi</div>
+          <div style="margin-bottom: 8px;"><strong>8.</strong> Deprem sırasında yapıların yıkılması sonucu oluşan enkaz yığını ve arama kurtarma çalışmalarının yapıldığı alan</div>
+        </div>
+      `;
+    }
+
+    function ucuncuIpuclariYukle() {
+      const cluesContent = document.getElementById('clues-content');
+      if (!cluesContent) return;
+
+      cluesContent.innerHTML = `
+        <div style="font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.5;">
+          <div style="margin-bottom: 8px;"><strong>1.</strong> Afet ve acil durum çantasına konulan, uzun süre bozulmadan saklanabilen yiyecek türü.</div>
+          <div style="margin-bottom: 8px;"><strong>2.</strong> Eşyaları sabitleme, doğru zemin seçme ve güvenli yapılar oluşturma gibi risk azaltıcı çalışmaların genel adı.</div>
+          <div style="margin-bottom: 8px;"><strong>3.</strong> Dağın içindeki çok sıcak magmanın patlayarak yeryüzüne çıkmasıyla oluşan doğa olayı.</div>
+          <div style="margin-bottom: 8px;"><strong>4.</strong> Depremin yerin altında başladığı ilk nokta.</div>
+          <div style="margin-bottom: 8px;"><strong>5.</strong> Çok yağmur yağınca veya zemin kayınca toprağın yamaçtan aşağı doğru kaymasıyla oluşan afet.</div>
+          <div style="margin-bottom: 8px;"><strong>6.</strong> Bulutlarla yer arasında gerçekleşen çok büyük elektrik boşalması.</div>
+          <div style="margin-bottom: 8px;"><strong>7.</strong> Deprem gibi afetlere hazırlık amacıyla yapılan uygulamalı prova çalışması.</div>
+          <div style="margin-bottom: 8px;"><strong>8.</strong> Deniz tabanında deprem, volkan patlaması veya toprak kayması sonucu oluşan dev dalgalar.</div>
+        </div>
+      `;
+    }
+
+    function saveGameState() {
+      try {
+        tabloDurumlari[oyunSeviyesi] = [];
+        for (let i = 0; i < 15; i++) {
+          if (tablo[i]) {
+            tabloDurumlari[oyunSeviyesi][i] = [...tablo[i]];
+          } else {
+            tabloDurumlari[oyunSeviyesi][i] = [];
+          }
+        }
+
+        bulunanDurumlari[oyunSeviyesi] = new Set(bulunan);
+
+        const gameState = {
+          bulunan: Array.from(bulunan), // Mevcut aşamanın bulunan kelimeleri (geriye dönük uyumluluk için)
+          bulunanDurumlari: {
+            1: Array.from(bulunanDurumlari[1]),
+            2: Array.from(bulunanDurumlari[2]),
+            3: Array.from(bulunanDurumlari[3])
+          }, // Her aşama için ayrı bulunan kelimeler
+          tablo: tablo, // Mevcut aşamanın tablo durumu (geriye dönük uyumluluk için)
+          tabloDurumlari: tabloDurumlari, // Her aşama için ayrı tablo durumu
+          tamamlananAsamalar: tamamlananAsamalar, // Her aşama için oyun bitme durumu
+          sonucHarfleri: sonucHarfleri,
+          visibleCells: Array.from(visibleCells),
+          currentWordDirection: currentWordDirection,
+          showSayiMarkers: showSayiMarkers,
+          oyunSeviyesi: oyunSeviyesi,
+          wordSlots: wordSlots.map(slot => ({
+            cells: slot.cells,
+            answer: slot.answer,
+            direction: slot.direction
+          }))
+        };
+        localStorage.setItem('cengel_bulmaca_state', JSON.stringify(gameState));
+      } catch (e) {
+      }
+    }
+
+    function loadGameState() {
+      try {
+        const savedState = localStorage.getItem('cengel_bulmaca_state');
+        if (!savedState) return false;
+
+        const gameState = JSON.parse(savedState);
+
+        if (gameState.oyunSeviyesi) {
+          oyunSeviyesi = gameState.oyunSeviyesi;
+        }
+
+        if (gameState.bulunanDurumlari) {
+          if (gameState.bulunanDurumlari[1]) {
+            bulunanDurumlari[1] = new Set(gameState.bulunanDurumlari[1]);
+          }
+          if (gameState.bulunanDurumlari[2]) {
+            bulunanDurumlari[2] = new Set(gameState.bulunanDurumlari[2]);
+          }
+          if (gameState.bulunanDurumlari[3]) {
+            bulunanDurumlari[3] = new Set(gameState.bulunanDurumlari[3]);
+          }
+        } else if (gameState.bulunan) {
+          bulunanDurumlari[oyunSeviyesi] = new Set(gameState.bulunan);
+        }
+
+        bulunan.clear();
+        if (bulunanDurumlari[oyunSeviyesi]) {
+          bulunanDurumlari[oyunSeviyesi].forEach(word => bulunan.add(word));
+        }
+
+        if (gameState.tamamlananAsamalar) {
+          tamamlananAsamalar[1] = gameState.tamamlananAsamalar[1] || false;
+          tamamlananAsamalar[2] = gameState.tamamlananAsamalar[2] || false;
+          tamamlananAsamalar[3] = gameState.tamamlananAsamalar[3] || false;
+        }
+
+        if (gameState.tabloDurumlari) {
+          if (gameState.tabloDurumlari[1]) {
+            tabloDurumlari[1] = [];
+            for (let i = 0; i < 15; i++) {
+              if (gameState.tabloDurumlari[1][i]) {
+                tabloDurumlari[1][i] = [...gameState.tabloDurumlari[1][i]];
+              } else {
+                tabloDurumlari[1][i] = [];
+              }
+            }
+          }
+          if (gameState.tabloDurumlari[2]) {
+            tabloDurumlari[2] = [];
+            for (let i = 0; i < 15; i++) {
+              if (gameState.tabloDurumlari[2][i]) {
+                tabloDurumlari[2][i] = [...gameState.tabloDurumlari[2][i]];
+              } else {
+                tabloDurumlari[2][i] = [];
+              }
+            }
+          }
+          if (gameState.tabloDurumlari[3]) {
+            tabloDurumlari[3] = [];
+            for (let i = 0; i < 15; i++) {
+              if (gameState.tabloDurumlari[3][i]) {
+                tabloDurumlari[3][i] = [...gameState.tabloDurumlari[3][i]];
+              } else {
+                tabloDurumlari[3][i] = [];
+              }
+            }
+          }
+        } else if (gameState.tablo && gameState.tablo.length > 0) {
+          for (let i = 0; i < 15; i++) {
+            if (gameState.tablo[i]) {
+              tabloDurumlari[oyunSeviyesi][i] = [...gameState.tablo[i]];
+            } else {
+              tabloDurumlari[oyunSeviyesi][i] = [];
+            }
+          }
+        }
+
+        if (tabloDurumlari[oyunSeviyesi] && tabloDurumlari[oyunSeviyesi].length > 0) {
+          for (let i = 0; i < 15; i++) {
+            if (tabloDurumlari[oyunSeviyesi][i]) {
+              tablo[i] = [...tabloDurumlari[oyunSeviyesi][i]];
+            } else {
+              tablo[i] = [];
+            }
+          }
+        } else {
+          for (let i = 0; i < 15; i++) {
+            tablo[i] = Array(15).fill("");
+          }
+        }
+
+        if (gameState.sonucHarfleri) {
+          sonucHarfleri = [...gameState.sonucHarfleri];
+        }
+
+        visibleCells.clear();
+        if (gameState.visibleCells) {
+          gameState.visibleCells.forEach(cell => visibleCells.add(cell));
+        }
+
+        currentWordDirection = gameState.currentWordDirection || null;
+
+        showSayiMarkers = gameState.showSayiMarkers !== false;
+
+        if (oyunSeviyesi === 1) {
+          sayiMappings = eskiSayiMappings;
+          sariKutuCells = eskiSariKutuCells;
+          if (!gameState.sonucHarfleri || gameState.sonucHarfleri.length !== eskiSonucHarfleri.length) {
+            sonucHarfleri = [...eskiSonucHarfleri];
+          }
+        } else if (oyunSeviyesi === 2) {
+          sayiMappings = yeniSayiMappings;
+          sariKutuCells = yeniSariKutuCells;
+          if (!gameState.sonucHarfleri || gameState.sonucHarfleri.length !== yeniSonucHarfleri.length) {
+            sonucHarfleri = [...yeniSonucHarfleri];
+          }
+        } else if (oyunSeviyesi === 3) {
+          sayiMappings = ucuncuSayiMappings;
+          sariKutuCells = ucuncuSariKutuCells;
+          if (!gameState.sonucHarfleri || gameState.sonucHarfleri.length !== ucuncuSonucHarfleri.length) {
+            sonucHarfleri = [...ucuncuSonucHarfleri];
+          }
+        }
+
+        if (gameState.wordSlots && gameState.wordSlots.length > 0) {
+          wordSlots.length = 0;
+          wordSlots.push(...gameState.wordSlots);
+        }
+
+        buildVisibleCells();
+        tabloyuGoster();
+        kelimeNumaralariniYerlestir();
+
+        const matchedSlots = new Set();
+        wordSlots.forEach((slot, index) => {
+          const letters = slot.cells.map(([x,y]) => {
+            if (y >= 0 && y < 15 && x >= 0 && x < 15 && tablo[y] && tablo[y][x] !== undefined) {
+              const letter = normalize(tablo[y][x]);
+              return letter;
+            }
+            return '';
+          });
+          const current = letters.join('');
+          const targetOk = Array.isArray(slot.answer) ? slot.answer.map(normalize) : [normalize(slot.answer)];
+          const full = letters.every(l => l && l.length === 1);
+          const match = full && targetOk.includes(current);
+          if (match) {
+            matchedSlots.add(index);
+          }
+        });
+        guncelleSariKutuHarfleri(matchedSlots);
+
+        kelimeListesiniGuncelle();
+        guncelleYildizlar();
+
+        if (originalKontrolEt) {
+          originalKontrolEt();
+        } else {
+          kontrolEt(); // Eğer originalKontrolEt henüz tanımlanmamışsa normal kontrolEt kullan
+        }
+
+        if (showSayiMarkers) {
+          eskiIpuclariYukle();
+        } else {
+          if (oyunSeviyesi === 2) {
+            yeniIpuclariYukle();
+          } else if (oyunSeviyesi === 3) {
+            ucuncuIpuclariYukle();
+          } else {
+            yeniIpuclariYukle();
+          }
+        }
+
+        guncelleButonDurumlari();
+
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    originalKontrolEt = kontrolEt;
+    kontrolEt = function() {
+      originalKontrolEt();
+      saveGameState();
+    };
+
+    wordSlots.push(...eskiKelimeler);
+
+    if (!loadGameState()) {
+      oyunuSifirla();
+    }
+
+    guncelleYildizlar();
+
+    guncelleButonDurumlari();
+
+    window.addEventListener('beforeunload', saveGameState);
+
+    setInterval(saveGameState, 5000); // Her 5 saniyede bir
+  </script>
+  <script src="libs/bootstrap/bootstrap.bundle.min.js" defer></script>
+  <script src="book-effect/jquery.js" defer></script>
+  <script src="book-effect/turn.js" defer></script>
+</body>
+</html>
